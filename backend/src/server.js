@@ -1,0 +1,808 @@
+import { ENV } from "./config/env.js";
+import express from "express";
+import cors from "cors";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { db } from "./config/db.js"; // <-- your drizzle db connection
+import {
+  usersTable,
+  wasteCategoriesTable,
+  wasteItemsTable,
+  quizzesTable,
+  quizQuestionsTable,
+  articlesTable,
+  recyclingCentersTable,
+  inquiriesTable,
+  wasteLogsTable,
+} from "./db/schema.js";
+import { eq } from "drizzle-orm";
+
+const app = express();
+const PORT = ENV.PORT || 8001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Authentication middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+/* ========== AUTHENTICATION ========== */
+
+// User Registration
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password, phone } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
+    }
+
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (existingUser.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user
+    const newUser = await db
+      .insert(usersTable)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+        phone: phone || null,
+        role: "user",
+        isActive: true,
+      })
+      .returning();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: newUser[0].id,
+        email: newUser[0].email,
+        name: newUser[0].name,
+        role: newUser[0].role,
+      },
+      ENV.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = newUser[0];
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// User Login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Find user
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (users.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const user = users[0];
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({ error: "Account is disabled" });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      ENV.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      message: "Login successful",
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get current user profile (protected route)
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.id));
+    if (users.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { password, ...userWithoutPassword } = users[0];
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Change password (protected route)
+app.put("/api/auth/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters long" });
+    }
+
+    // Get current user
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.id));
+    if (users.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = users[0];
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await db
+      .update(usersTable)
+      .set({ password: hashedPassword })
+      .where(eq(usersTable.id, req.user.id));
+
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Admin middleware
+const authenticateAdmin = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
+
+  jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
+    
+    if (user.role !== "admin" && user.role !== "manager") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    
+    req.user = user;
+    next();
+  });
+};
+
+// Admin signup (create admin users)
+app.post("/api/auth/admin-signup", authenticateAdmin, async (req, res) => {
+  try {
+    const { name, email, password, phone, role } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required" });
+    }
+
+    if (!role || !["user", "manager", "admin"].includes(role)) {
+      return res
+        .status(400)
+        .json({ error: "Valid role is required (user, manager, admin)" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
+    }
+
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (existingUser.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user with specified role
+    const newUser = await db
+      .insert(usersTable)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+        phone: phone || null,
+        role: role,
+        isActive: true,
+      })
+      .returning();
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = newUser[0];
+
+    res.status(201).json({
+      message: `${role} account created successfully`,
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("Admin signup error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get all users (admin only)
+app.get("/api/auth/users", authenticateAdmin, async (req, res) => {
+  try {
+    const users = await db.select({
+      id: usersTable.id,
+      name: usersTable.name,
+      email: usersTable.email,
+      phone: usersTable.phone,
+      role: usersTable.role,
+      isActive: usersTable.isActive,
+      createdAt: usersTable.createdAt,
+    }).from(usersTable);
+
+    res.json(users);
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Update user role (admin only)
+app.put("/api/auth/users/:id/role", authenticateAdmin, async (req, res) => {
+  try {
+    const { role } = req.body;
+    const userId = Number(req.params.id);
+
+    if (!role || !["user", "manager", "admin"].includes(role)) {
+      return res
+        .status(400)
+        .json({ error: "Valid role is required (user, manager, admin)" });
+    }
+
+    const updatedUser = await db
+      .update(usersTable)
+      .set({ role })
+      .where(eq(usersTable.id, userId))
+      .returning({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        role: usersTable.role,
+      });
+
+    if (updatedUser.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: "User role updated successfully",
+      user: updatedUser[0],
+    });
+  } catch (error) {
+    console.error("Update user role error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Activate/Deactivate user (admin only)
+app.put("/api/auth/users/:id/status", authenticateAdmin, async (req, res) => {
+  try {
+    const { isActive } = req.body;
+    const userId = Number(req.params.id);
+
+    if (typeof isActive !== "boolean") {
+      return res
+        .status(400)
+        .json({ error: "isActive must be a boolean value" });
+    }
+
+    const updatedUser = await db
+      .update(usersTable)
+      .set({ isActive })
+      .where(eq(usersTable.id, userId))
+      .returning({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        isActive: usersTable.isActive,
+      });
+
+    if (updatedUser.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      message: `User ${isActive ? "activated" : "deactivated"} successfully`,
+      user: updatedUser[0],
+    });
+  } catch (error) {
+    console.error("Update user status error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+/* ========== USERS ========== */
+app.post("/api/users", async (req, res) => {
+  const user = await db.insert(usersTable).values(req.body).returning();
+  res.json(user);
+});
+
+app.get("/api/users", async (req, res) => {
+  const users = await db.select().from(usersTable);
+  res.json(users);
+});
+
+app.put("/api/users/:id", async (req, res) => {
+  const updated = await db
+    .update(usersTable)
+    .set(req.body)
+    .where(eq(usersTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/users/:id", async (req, res) => {
+  await db.delete(usersTable).where(eq(usersTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== WASTE CATEGORIES ========== */
+app.post("/api/categories", async (req, res) => {
+  try {
+    const cat = await db
+      .insert(wasteCategoriesTable)
+      .values(req.body)
+      .returning();
+    res.json(cat[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/categories", async (req, res) => {
+  try {
+    const cats = await db.select().from(wasteCategoriesTable);
+    res.json(cats);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/categories/with-items", async (req, res) => {
+  try {
+    const categories = await db.select().from(wasteCategoriesTable);
+    const categoriesWithItems = await Promise.all(
+      categories.map(async (category) => {
+        const items = await db
+          .select()
+          .from(wasteItemsTable)
+          .where(eq(wasteItemsTable.categoryId, category.id));
+        return { ...category, items };
+      })
+    );
+    res.json(categoriesWithItems);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/categories/:id", async (req, res) => {
+  try {
+    const updated = await db
+      .update(wasteCategoriesTable)
+      .set(req.body)
+      .where(eq(wasteCategoriesTable.id, Number(req.params.id)))
+      .returning();
+    res.json(updated[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/categories/:id", async (req, res) => {
+  try {
+    await db
+      .delete(wasteCategoriesTable)
+      .where(eq(wasteCategoriesTable.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ========== WASTE ITEMS ========== */
+app.post("/api/items", async (req, res) => {
+  const item = await db.insert(wasteItemsTable).values(req.body).returning();
+  res.json(item);
+});
+
+app.get("/api/items", async (req, res) => {
+  const items = await db.select().from(wasteItemsTable);
+  res.json(items);
+});
+
+app.put("/api/items/:id", async (req, res) => {
+  const updated = await db
+    .update(wasteItemsTable)
+    .set(req.body)
+    .where(eq(wasteItemsTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/items/:id", async (req, res) => {
+  await db
+    .delete(wasteItemsTable)
+    .where(eq(wasteItemsTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== QUIZZES ========== */
+app.post("/api/quizzes", async (req, res) => {
+  const quiz = await db.insert(quizzesTable).values(req.body).returning();
+  res.json(quiz);
+});
+
+app.get("/api/quizzes", async (req, res) => {
+  const quizzes = await db.select().from(quizzesTable);
+  res.json(quizzes);
+});
+
+app.put("/api/quizzes/:id", async (req, res) => {
+  const updated = await db
+    .update(quizzesTable)
+    .set(req.body)
+    .where(eq(quizzesTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/quizzes/:id", async (req, res) => {
+  await db
+    .delete(quizzesTable)
+    .where(eq(quizzesTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== QUIZ QUESTIONS ========== */
+app.post("/api/questions", async (req, res) => {
+  const q = await db.insert(quizQuestionsTable).values(req.body).returning();
+  res.json(q);
+});
+
+app.get("/api/questions", async (req, res) => {
+  const qs = await db.select().from(quizQuestionsTable);
+  res.json(qs);
+});
+
+app.put("/api/questions/:id", async (req, res) => {
+  const updated = await db
+    .update(quizQuestionsTable)
+    .set(req.body)
+    .where(eq(quizQuestionsTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/questions/:id", async (req, res) => {
+  await db
+    .delete(quizQuestionsTable)
+    .where(eq(quizQuestionsTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== ARTICLES ========== */
+app.post("/api/articles", async (req, res) => {
+  const art = await db.insert(articlesTable).values(req.body).returning();
+  res.json(art);
+});
+
+app.get("/api/articles", async (req, res) => {
+  const arts = await db.select().from(articlesTable);
+  res.json(arts);
+});
+
+app.put("/api/articles/:id", async (req, res) => {
+  const updated = await db
+    .update(articlesTable)
+    .set(req.body)
+    .where(eq(articlesTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/articles/:id", async (req, res) => {
+  await db
+    .delete(articlesTable)
+    .where(eq(articlesTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== RECYCLING CENTERS ========== */
+app.post("/api/centers", async (req, res) => {
+  const center = await db
+    .insert(recyclingCentersTable)
+    .values(req.body)
+    .returning();
+  res.json(center);
+});
+
+app.get("/api/centers", async (req, res) => {
+  const centers = await db.select().from(recyclingCentersTable);
+  res.json(centers);
+});
+
+app.put("/api/centers/:id", async (req, res) => {
+  const updated = await db
+    .update(recyclingCentersTable)
+    .set(req.body)
+    .where(eq(recyclingCentersTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/centers/:id", async (req, res) => {
+  await db
+    .delete(recyclingCentersTable)
+    .where(eq(recyclingCentersTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== INQUIRIES ========== */
+app.post("/api/inquiries", async (req, res) => {
+  const inquiry = await db.insert(inquiriesTable).values(req.body).returning();
+  res.json(inquiry);
+});
+
+app.get("/api/inquiries", async (req, res) => {
+  const inq = await db.select().from(inquiriesTable);
+  res.json(inq);
+});
+
+app.put("/api/inquiries/:id", async (req, res) => {
+  const updated = await db
+    .update(inquiriesTable)
+    .set(req.body)
+    .where(eq(inquiriesTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/inquiries/:id", async (req, res) => {
+  await db
+    .delete(inquiriesTable)
+    .where(eq(inquiriesTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== WASTE LOGS ========== */
+app.post("/api/logs", async (req, res) => {
+  try {
+    const log = await db.insert(wasteLogsTable).values(req.body).returning();
+    res.json(log[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/logs", async (req, res) => {
+  try {
+    const { userId } = req.query;
+    let logs;
+
+    if (userId) {
+      logs = await db
+        .select({
+          id: wasteLogsTable.id,
+          description: wasteLogsTable.description,
+          quantity: wasteLogsTable.quantity,
+          createdAt: wasteLogsTable.createdAt,
+          itemName: wasteItemsTable.name,
+          categoryName: wasteCategoriesTable.name,
+          disposalInstructions: wasteItemsTable.disposalInstructions,
+        })
+        .from(wasteLogsTable)
+        .leftJoin(
+          wasteItemsTable,
+          eq(wasteLogsTable.itemId, wasteItemsTable.id)
+        )
+        .leftJoin(
+          wasteCategoriesTable,
+          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
+        )
+        .where(eq(wasteLogsTable.userId, Number(userId)))
+        .orderBy(wasteLogsTable.createdAt);
+    } else {
+      logs = await db
+        .select({
+          id: wasteLogsTable.id,
+          userId: wasteLogsTable.userId,
+          description: wasteLogsTable.description,
+          quantity: wasteLogsTable.quantity,
+          createdAt: wasteLogsTable.createdAt,
+          itemName: wasteItemsTable.name,
+          categoryName: wasteCategoriesTable.name,
+        })
+        .from(wasteLogsTable)
+        .leftJoin(
+          wasteItemsTable,
+          eq(wasteLogsTable.itemId, wasteItemsTable.id)
+        )
+        .leftJoin(
+          wasteCategoriesTable,
+          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
+        )
+        .orderBy(wasteLogsTable.createdAt);
+    }
+
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/logs/stats/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get monthly stats
+    const monthlyStats = await db
+      .select()
+      .from(wasteLogsTable)
+      .where(eq(wasteLogsTable.userId, Number(userId)));
+
+    // Calculate total quantity and count
+    const totalQuantity = monthlyStats.reduce(
+      (sum, log) => sum + (log.quantity || 0),
+      0
+    );
+    const totalLogs = monthlyStats.length;
+
+    res.json({
+      totalQuantity,
+      totalLogs,
+      monthlyStats: monthlyStats.slice(-30), // Last 30 entries
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put("/api/logs/:id", async (req, res) => {
+  try {
+    const updated = await db
+      .update(wasteLogsTable)
+      .set(req.body)
+      .where(eq(wasteLogsTable.id, Number(req.params.id)))
+      .returning();
+    res.json(updated[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/api/logs/:id", async (req, res) => {
+  try {
+    await db
+      .delete(wasteLogsTable)
+      .where(eq(wasteLogsTable.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ========== START SERVER ========== */
+
+app.listen(PORT, () => {
+  console.log("Server is running on port", PORT);
+});
