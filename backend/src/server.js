@@ -628,33 +628,122 @@ app.delete("/api/articles/:id", async (req, res) => {
 });
 
 /* ========== RECYCLING CENTERS ========== */
+
+// Create recycling center
 app.post("/api/centers", async (req, res) => {
-  const center = await db
-    .insert(recyclingCentersTable)
-    .values(req.body)
-    .returning();
-  res.json(center);
+  try {
+    const { name, address, phone, website, hours, services, rating, distance } = req.body;
+    
+    // Validate required fields
+    if (!name || !address) {
+      return res.status(400).json({ error: "Name and address are required" });
+    }
+
+    const center = await db
+      .insert(recyclingCentersTable)
+      .values({
+        name,
+        address,
+        phone: phone || null,
+        website: website || null,
+        hours: hours || null,
+        services: services ? JSON.stringify(services) : null,
+        rating: rating || 0,
+        distance: distance || 0,
+        isApproved: false,
+      })
+      .returning();
+    
+    // Parse services back to array for response
+    const result = {
+      ...center[0],
+      services: center[0].services ? JSON.parse(center[0].services) : []
+    };
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error creating recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Get all recycling centers
 app.get("/api/centers", async (req, res) => {
-  const centers = await db.select().from(recyclingCentersTable);
-  res.json(centers);
+  try {
+    const centers = await db.select().from(recyclingCentersTable);
+    
+    // Parse services JSON for each center
+    const centersWithParsedServices = centers.map(center => ({
+      ...center,
+      services: center.services ? JSON.parse(center.services) : []
+    }));
+    
+    res.json(centersWithParsedServices);
+  } catch (error) {
+    console.error("Error fetching recycling centers:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Update recycling center
 app.put("/api/centers/:id", async (req, res) => {
-  const updated = await db
-    .update(recyclingCentersTable)
-    .set(req.body)
-    .where(eq(recyclingCentersTable.id, Number(req.params.id)))
-    .returning();
-  res.json(updated);
+  try {
+    const { name, address, phone, website, hours, services, rating, distance } = req.body;
+    const centerId = Number(req.params.id);
+
+    const updateData = {
+      ...(name && { name }),
+      ...(address && { address }),
+      phone: phone || null,
+      website: website || null,
+      hours: hours || null,
+      services: services ? JSON.stringify(services) : null,
+      ...(rating !== undefined && { rating }),
+      ...(distance !== undefined && { distance }),
+    };
+
+    const updated = await db
+      .update(recyclingCentersTable)
+      .set(updateData)
+      .where(eq(recyclingCentersTable.id, centerId))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: "Recycling center not found" });
+    }
+
+    // Parse services back to array for response
+    const result = {
+      ...updated[0],
+      services: updated[0].services ? JSON.parse(updated[0].services) : []
+    };
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error updating recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Delete recycling center
 app.delete("/api/centers/:id", async (req, res) => {
-  await db
-    .delete(recyclingCentersTable)
-    .where(eq(recyclingCentersTable.id, Number(req.params.id)));
-  res.json({ success: true });
+  try {
+    const centerId = Number(req.params.id);
+    
+    const deleted = await db
+      .delete(recyclingCentersTable)
+      .where(eq(recyclingCentersTable.id, centerId))
+      .returning();
+    
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: "Recycling center not found" });
+    }
+    
+    res.json({ success: true, message: "Recycling center deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /* ========== INQUIRIES ========== */

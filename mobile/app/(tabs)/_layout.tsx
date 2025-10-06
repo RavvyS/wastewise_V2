@@ -41,9 +41,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="locations"
+        name="recycling-centers"
         options={{
-          title: "Locations",
+          title: "Centers",
+          headerTitle: "Recycling Centers",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="location-outline" size={size} color={color} />
           ),

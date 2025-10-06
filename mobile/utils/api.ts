@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://10.19.135.1:5001' // Development - use actual IP for mobile simulator
+    ? 'http://10.0.2.2:5001' // Android Emulator (use localhost for iOS, or your local IP for physical device)
     : 'https://your-production-api.com'; // Production
 
 export const API_ENDPOINTS = {
@@ -27,6 +27,10 @@ export const API_ENDPOINTS = {
 
     // Users
     USERS: '/api/users',
+
+    // Recycling Centers
+    CENTERS: '/api/centers',
+    CENTER_BY_ID: (centerId: number) => `/api/centers/${centerId}`,
 };
 
 // Token Management (using simple in-memory storage for demo)

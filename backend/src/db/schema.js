@@ -54,9 +54,14 @@ export const recyclingCentersTable = pgTable("recycling_centers", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   address: text("address").notNull(),
-  timings: text("timings"),
-  acceptedItems: text("accepted_items"), // JSON string
+  phone: text("phone"),
+  website: text("website"),
+  hours: text("hours"),
+  services: text("services"),
+  rating: integer("rating").default(0),
+  distance: integer("distance").default(0),
   isApproved: boolean("is_approved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const inquiriesTable = pgTable("inquiries", {
