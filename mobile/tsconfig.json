@@ -2,6 +2,21 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    
+    // --- RECOMMENDED FIXES FOR YOUR PREVIOUS ERRORS ---
+    
+    // Fixes "Module '...' can only be default-imported using the 'esModuleInterop' flag" (Code 1259)
+    "esModuleInterop": true,
+
+    // Often helps resolve module issues, especially in React projects
+    "allowSyntheticDefaultImports": true, 
+    
+    // This should be set by "expo/tsconfig.base", but explicitly setting it 
+    // ensures JSX is processed correctly (Code 17004) if the base config fails.
+    "jsx": "react-native", 
+    
+    // ----------------------------------------------------
+    
     "paths": {
       "@/*": [
         "./*"
@@ -12,6 +27,12 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    // Ensure TypeScript is checking your source files if they are in 'app' or other folders:
+    "app/**/*.tsx", 
+    "components/**/*.tsx", 
+    "constants/*.ts",
+    "styles/*.ts",
+    "utils/*.ts"
   ]
 }
