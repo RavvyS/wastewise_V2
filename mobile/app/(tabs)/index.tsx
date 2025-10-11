@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   Text,
   View,
@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  Animated,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -16,28 +15,6 @@ import { apiGet, API_ENDPOINTS } from "../../utils/api";
 
 export default function HomeScreen() {
   const [testing, setTesting] = useState(false);
-  const [isFabOpen, setIsFabOpen] = useState(false);
-  const animation = useRef(new Animated.Value(0)).current;
-
-  const toggleFab = () => {
-    const toValue = isFabOpen ? 0 : 1;
-    Animated.spring(animation, {
-      toValue,
-      friction: 5,
-      useNativeDriver: true,
-    }).start();
-    setIsFabOpen(!isFabOpen);
-  };
-
-  const chatTranslateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -80],
-  });
-
-  const cameraTranslateY = animation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -160],
-  });
 
   const testBackendConnection = async () => {
     setTesting(true);
@@ -263,55 +240,9 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={toggleFab} activeOpacity={0.8}>
-        <Ionicons 
-          name={isFabOpen ? "close" : "add"} 
-          size={30} 
-          color="white" 
-        />
-      </TouchableOpacity>
-
-      {/* FAB Options */}
-      <Animated.View 
-        style={[
-          styles.fabOption,
-          {
-            transform: [{ translateY: chatTranslateY }],
-            bottom: 90,
-          }
-        ]}
-      >
-        <TouchableOpacity onPress={() => {
-          toggleFab();
-          router.push("/ecozen-chat");
-        }}>
-          <Ionicons name="chatbubble-outline" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-      </Animated.View>
-
-      <Animated.View 
-        style={[
-          styles.fabOption,
-          {
-            transform: [{ translateY: cameraTranslateY }],
-            bottom: 160,
-          }
-        ]}
-      >
-        <TouchableOpacity onPress={() => {
-          toggleFab();
-          router.push("/camera-detection");
-        }}>
-          <Ionicons name="camera-outline" size={24} color="#4CAF50" />
-        </TouchableOpacity>
-      </Animated.View>
-
     </SafeAreaView>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -540,38 +471,5 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 8,
     backgroundColor: "#E8F5E8",
-  },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    bottom: 20,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 1,
-  },
-  fabOption: {
-    position: 'absolute',
-    right: 20,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 0,
   },
 });
