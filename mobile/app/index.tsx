@@ -7,12 +7,12 @@ export default function Index() {
   const isAuthenticated = false; // This would come from your auth context
 
   if (!hasSeenOnboarding) {
-    return <Redirect href="/welcome" />;
+    return <Redirect href="welcome" />;
   }
 
   if (!isAuthenticated) {
-    return <Redirect href="/auth" />;
+    return <Redirect href="auth" />;
   }
 
-  return <Redirect href="/(tabs)" />;
+  return <Redirect href="(tabs)" />;
 }
