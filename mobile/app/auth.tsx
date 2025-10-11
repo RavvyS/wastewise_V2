@@ -121,47 +121,22 @@ export default function AuthScreen() {
         console.log("📝 Attempting signup with data:", { ...signupData, password: "[HIDDEN]" });
         const response = await signup(signupData);
         console.log("✅ Signup successful:", response);
-        console.log("🚀 Navigating to home screen...");
         
-        // Navigate immediately after successful signup
-        console.log("🚀 Attempting navigation to /(tabs) after signup...");
+        // Clear form and switch to login mode after successful registration
+        setIsLogin(true);
+        setEmail(email.trim()); // Keep the email for convenience
+        setPassword("");
+        setConfirmPassword("");
+        setName("");
+        setRole('user');
+        setIsAdminMode(false);
         
-        setTimeout(() => {
-          try {
-            console.log("📱 Executing router.replace to /(tabs)...");
-            router.replace("/(tabs)");
-            console.log("✅ Navigation command executed successfully");
-          } catch (navError) {
-            console.error("❌ Primary navigation failed:", navError);
-            
-            try {
-              router.push("/(tabs)");
-              console.log("✅ Fallback push navigation successful");
-            } catch (pushError) {
-              console.error("❌ Push navigation failed:", pushError);
-              
-              try {
-                router.navigate("/(tabs)");
-                console.log("✅ Navigate fallback successful");
-              } catch (finalError) {
-                console.error("❌ All navigation methods failed:", finalError);
-                Alert.alert(
-                  "Navigation Issue",
-                  "Signup was successful but navigation failed. Please close and reopen the app.",
-                  [{ text: "OK" }]
-                );
-              }
-            }
-          }
-        }, 250);
-        
-        // Show success message after navigation
-        setTimeout(() => {
-          Alert.alert(
-            "Welcome!",
-            `Account created successfully! Welcome to EcoSeparate, ${response.user.name}!`
-          );
-        }, 500);
+        // Show success message and prompt to login
+        Alert.alert(
+          "Registration Successful",
+          "Your account has been created successfully! Please log in to continue.",
+          [{ text: "OK" }]
+        );
       }
     } catch (error: any) {
       console.error("❌ Authentication failed:", error);
