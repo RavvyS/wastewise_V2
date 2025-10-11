@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -10,10 +10,11 @@ import {
   Alert,
   Switch,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { logout } from "../../utils/api";
+import { logout, getCurrentUser } from "../../utils/api";
 
 interface UserProfile {
   name: string;
@@ -44,17 +45,44 @@ export default function ProfileScreen() {
     useState(false);
 
   // User profile state
+  const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 234-567-8900",
-    location: "New York, NY",
-    joinDate: "January 2024",
-    totalRecycled: 127.5,
-    streakDays: 23,
-    level: 5,
-    points: 1250,
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    joinDate: "",
+    totalRecycled: 0,
+    streakDays: 0,
+    level: 1,
+    points: 0,
   });
+
+  // Fetch user data when component mounts
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setLoading(true);
+        const userData = await getCurrentUser();
+        setUserProfile({
+          ...userProfile,
+          ...userData,
+          // Format join date if needed
+          joinDate: new Date(userData.createdAt || Date.now()).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long'
+          })
+        });
+      } catch (error) {
+        console.error('Failed to load user profile:', error);
+        Alert.alert('Error', 'Failed to load user profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   // Settings state
   const [settings, setSettings] = useState<Setting[]>([
