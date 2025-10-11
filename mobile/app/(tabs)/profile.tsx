@@ -12,6 +12,8 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { logout } from "../../utils/api";
 
 interface UserProfile {
   name: string;
@@ -186,6 +188,121 @@ export default function ProfileScreen() {
     return Math.max(0, Math.min(1, progress));
   };
 
+  const handleSignOut = () => {
+    Alert.alert(
+      "Sign Out",
+      "Are you sure you want to sign out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Sign Out",
+          style: "destructive",
+          onPress: async () => {
+            console.log("🚪 User confirmed sign out - starting logout process...");
+            
+            try {
+              // Step 1: Clear authentication token
+              console.log("🗑️ Clearing authentication token...");
+              logout();
+              console.log("✅ Token cleared successfully");
+              
+              // Step 2: Navigate to auth screen immediately
+              console.log("🔄 Attempting navigation to auth screen...");
+              
+              // Use setTimeout to ensure state updates are processed
+              setTimeout(() => {
+                try {
+                  console.log("� Executing router.replace('/auth')...");
+                  router.replace("/auth");
+                  console.log("✅ Primary navigation successful");
+                } catch (replaceError) {
+                  console.error("❌ Replace navigation failed:", replaceError);
+                  
+                  // Fallback 1: Try push navigation
+                  try {
+                    console.log("🔄 Trying fallback push navigation...");
+                    router.push("/auth");
+                    console.log("✅ Push navigation successful");
+                  } catch (pushError) {
+                    console.error("❌ Push navigation failed:", pushError);
+                    
+                    // Fallback 2: Try navigate
+                    try {
+                      console.log("🔄 Trying navigate fallback...");
+                      router.navigate("/auth");
+                      console.log("✅ Navigate fallback successful");
+                    } catch (navigateError) {
+                      console.error("❌ All navigation methods failed:", navigateError);
+                      
+                      // Final fallback: Show manual instruction
+                      Alert.alert(
+                        "Signed Out",
+                        "You have been signed out successfully. Please manually navigate to the login screen.",
+                        [
+                          {
+                            text: "Go to Login",
+                            onPress: () => {
+                              // Force navigation with delay
+                              setTimeout(() => {
+                                router.replace("/auth");
+                              }, 100);
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  }
+                }
+              }, 100);
+              
+            } catch (error) {
+              console.error("❌ Critical error during sign out:", error);
+              Alert.alert(
+                "Sign Out Error", 
+                "An error occurred during sign out. Please restart the app.",
+                [
+                  {
+                    text: "OK",
+                    onPress: () => {
+                      // Still try to navigate to auth screen
+                      router.replace("/auth");
+                    }
+                  }
+                ]
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleShareApp = () => {
+    Alert.alert(
+      "Share EcoSeparate",
+      "Help your friends join the eco-friendly movement!",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Share",
+          onPress: () => {
+            // In a real app, you would use React Native Share API
+            Alert.alert(
+              "Share App",
+              "Share link: https://ecoseparate.app\n\nJoin me on EcoSeparate - the best way to track your recycling and help the environment! 🌱"
+            );
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView}>
@@ -282,11 +399,24 @@ export default function ProfileScreen() {
               <Ionicons name="settings" size={24} color="#666" />
               <Text style={styles.quickActionText}>Settings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickActionButton}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={handleShareApp}
+            >
               <Ionicons name="share" size={24} color="#2196F3" />
               <Text style={styles.quickActionText}>Share App</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickActionButton}>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => {
+                // Simple direct sign out - no confirmation
+                console.log("🚪 Sign out button pressed - executing logout...");
+                logout();
+                console.log("🔄 Navigating to auth page...");
+                router.replace("/auth");
+                console.log("✅ Sign out navigation completed");
+              }}
+            >
               <Ionicons name="log-out" size={24} color="#F44336" />
               <Text style={styles.quickActionText}>Sign Out</Text>
             </TouchableOpacity>

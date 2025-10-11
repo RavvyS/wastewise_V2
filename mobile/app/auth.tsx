@@ -52,8 +52,11 @@ export default function AuthScreen() {
     setLoading(true);
 
     try {
+      console.log("🔄 Starting authentication process...");
+      
       if (isLogin) {
         // Login
+        console.log("📝 Attempting login for:", email.trim());
         const response = await login({
           email: email.trim(),
           password: password,
@@ -62,19 +65,50 @@ export default function AuthScreen() {
         const userRole = response.user.role;
         const welcomeMessage = `Welcome back, ${response.user.name}!${userRole === 'admin' || userRole === 'manager' ? ` (${userRole.charAt(0).toUpperCase() + userRole.slice(1)})` : ''}`;
         
-        Alert.alert("Success", welcomeMessage, [
-          {
-            text: "OK",
-            onPress: () => {
-              // Navigate based on user role
-              if (userRole === 'admin' || userRole === 'manager') {
-                router.push("/(tabs)"); // In a real app, this could be an admin dashboard
-              } else {
-                router.push("/(tabs)");
+        console.log("✅ Login successful:", response);
+        console.log("🚀 Navigating to home screen...");
+        
+        // Navigate immediately after successful login
+        console.log("🚀 Attempting navigation to /(tabs)...");
+        
+        // Use setTimeout to ensure the state updates are processed first
+        setTimeout(() => {
+          try {
+            console.log("📱 Executing router.replace to /(tabs)...");
+            router.replace("/(tabs)");
+            console.log("✅ Navigation command executed successfully");
+          } catch (navError) {
+            console.error("❌ Primary navigation failed:", navError);
+            
+            // Fallback navigation attempts
+            console.log("🔄 Trying fallback navigation methods...");
+            
+            try {
+              router.push("/(tabs)");
+              console.log("✅ Fallback push navigation successful");
+            } catch (pushError) {
+              console.error("❌ Push navigation failed:", pushError);
+              
+              // Final fallback - navigate to home tab directly
+              try {
+                router.navigate("/(tabs)");
+                console.log("✅ Navigate fallback successful");
+              } catch (finalError) {
+                console.error("❌ All navigation methods failed:", finalError);
+                Alert.alert(
+                  "Navigation Issue",
+                  "Login was successful but navigation failed. Please close and reopen the app.",
+                  [{ text: "OK" }]
+                );
               }
-            },
-          },
-        ]);
+            }
+          }
+        }, 250);
+        
+        // Show welcome message after navigation
+        setTimeout(() => {
+          Alert.alert("Welcome Back!", welcomeMessage);
+        }, 500);
       } else {
         // Sign up
         const signupData = {
@@ -84,25 +118,65 @@ export default function AuthScreen() {
           ...(isAdminMode && { role: role })
         };
         
+        console.log("📝 Attempting signup with data:", { ...signupData, password: "[HIDDEN]" });
         const response = await signup(signupData);
-        Alert.alert(
-          "Success",
-          `Account created successfully! Welcome, ${response.user.name}!`,
-          [
-            {
-              text: "OK",
-              onPress: () => router.push("/(tabs)"),
-            },
-          ]
-        );
+        console.log("✅ Signup successful:", response);
+        console.log("🚀 Navigating to home screen...");
+        
+        // Navigate immediately after successful signup
+        console.log("🚀 Attempting navigation to /(tabs) after signup...");
+        
+        setTimeout(() => {
+          try {
+            console.log("📱 Executing router.replace to /(tabs)...");
+            router.replace("/(tabs)");
+            console.log("✅ Navigation command executed successfully");
+          } catch (navError) {
+            console.error("❌ Primary navigation failed:", navError);
+            
+            try {
+              router.push("/(tabs)");
+              console.log("✅ Fallback push navigation successful");
+            } catch (pushError) {
+              console.error("❌ Push navigation failed:", pushError);
+              
+              try {
+                router.navigate("/(tabs)");
+                console.log("✅ Navigate fallback successful");
+              } catch (finalError) {
+                console.error("❌ All navigation methods failed:", finalError);
+                Alert.alert(
+                  "Navigation Issue",
+                  "Signup was successful but navigation failed. Please close and reopen the app.",
+                  [{ text: "OK" }]
+                );
+              }
+            }
+          }
+        }, 250);
+        
+        // Show success message after navigation
+        setTimeout(() => {
+          Alert.alert(
+            "Welcome!",
+            `Account created successfully! Welcome to EcoSeparate, ${response.user.name}!`
+          );
+        }, 500);
       }
     } catch (error: any) {
+      console.error("❌ Authentication failed:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      
       Alert.alert(
-        "Error",
-        error.message || "Authentication failed. Please try again."
+        "Authentication Error",
+        error.message || "Authentication failed. Please check your credentials and try again."
       );
-      console.error("Auth error:", error);
     } finally {
+      console.log("🏁 Authentication process completed");
       setLoading(false);
     }
   };

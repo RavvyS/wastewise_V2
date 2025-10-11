@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://10.19.135.1:5001' // Development - use actual IP for mobile simulator
+    ? 'http://172.28.31.179:5001' // Development - use actual IP for mobile simulator
     : 'https://your-production-api.com'; // Production
 
 export const API_ENDPOINTS = {
@@ -46,6 +46,7 @@ export const removeAuthToken = () => {
 
 // API Helper Functions
 export const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+    const startTime = Date.now();
     try {
         const url = `${API_BASE_URL}${endpoint}`;
         console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
@@ -66,18 +67,21 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
             ...options,
         });
 
-        console.log(`📡 API Response: ${response.status} ${response.statusText}`);
+        const duration = Date.now() - startTime;
+        console.log(`📡 API Response: ${response.status} ${response.statusText} (${duration}ms)`);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
+            console.error(`❌ API Error Response:`, errorData);
             throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log(`✅ API Data received:`, data);
+        console.log(`✅ API Data received (${data ? Object.keys(data).length : 0} keys, ${duration}ms)`);
         return data;
     } catch (error) {
-        console.error('❌ API Request Error:', error);
+        const duration = Date.now() - startTime;
+        console.error(`❌ API Request Error (${duration}ms):`, error);
         throw error;
     }
 };
@@ -117,15 +121,35 @@ export const login = async (credentials: {
     email: string;
     password: string;
 }) => {
-    const response = await apiPost(API_ENDPOINTS.LOGIN, credentials);
-    if (response.token) {
-        setAuthToken(response.token);
+    console.log("🔑 Attempting login for email:", credentials.email);
+    try {
+        const response = await apiPost(API_ENDPOINTS.LOGIN, credentials);
+        console.log("📥 Login response received:", response);
+        
+        if (response.token) {
+            console.log("✅ Token received, setting auth token");
+            setAuthToken(response.token);
+            console.log("✅ Auth token set successfully");
+        } else {
+            console.log("❌ No token in response");
+        }
+        
+        return response;
+    } catch (error) {
+        console.error("❌ Login error:", error);
+        throw error;
     }
-    return response;
 };
 
 export const logout = () => {
+    console.log("🚪 Logging out user...");
+    console.log("🔍 Current auth token before logout:", authToken ? "EXISTS" : "NULL");
+    
+    // Clear the auth token
     removeAuthToken();
+    
+    console.log("🔍 Auth token after removal:", authToken ? "STILL EXISTS" : "NULL");
+    console.log("✅ Logout process completed");
 };
 
 export const getCurrentUser = async () => {
