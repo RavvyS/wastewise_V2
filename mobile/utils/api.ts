@@ -1,7 +1,7 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator
-    : 'https://backend-btr7xctc4-ravys-projects-6aca67d7.vercel.app'; // Production - Vercel
+    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator  
+    : 'https://backend-two-zeta-41.vercel.app'; // Production - Vercel (Working URL)
 
 export const API_ENDPOINTS = {
     // Authentication
