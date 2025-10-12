@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,14 +10,15 @@ import {
   ScrollView,
   ActivityIndicator,
   Dimensions,
-} from 'react-native';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import * as MediaLibrary from 'expo-media-library';
-import { GeminiService } from '../utils/gemini';
+} from "react-native";
+import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import * as MediaLibrary from "expo-media-library";
+import { GeminiService } from "../utils/gemini";
+import { Colors } from "../constants/Colors";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 interface DetectionResult {
   detectedSymbol?: string;
@@ -29,12 +30,14 @@ interface DetectionResult {
 }
 
 export default function CameraDetectionScreen() {
-  const [facing, setFacing] = useState<CameraType>('back');
+  const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
-  const [mediaPermission, requestMediaPermission] = MediaLibrary.usePermissions();
+  const [mediaPermission, requestMediaPermission] =
+    MediaLibrary.usePermissions();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showResult, setShowResult] = useState(false);
-  const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
+  const [detectionResult, setDetectionResult] =
+    useState<DetectionResult | null>(null);
   const [capturedImage, setCapturedImage] = useState<any>(null);
   const cameraRef = useRef<CameraView>(null);
 
@@ -49,7 +52,11 @@ export default function CameraDetectionScreen() {
   }, []);
 
   if (!permission) {
-    return <View style={styles.container}><Text>Requesting permissions...</Text></View>;
+    return (
+      <View style={styles.container}>
+        <Text>Requesting permissions...</Text>
+      </View>
+    );
   }
 
   if (!permission.granted) {
@@ -61,10 +68,16 @@ export default function CameraDetectionScreen() {
           <Text style={styles.permissionText}>
             We need camera access to detect recycling symbols on your items.
           </Text>
-          <TouchableOpacity style={styles.permissionButton} onPress={requestPermission}>
+          <TouchableOpacity
+            style={styles.permissionButton}
+            onPress={requestPermission}
+          >
             <Text style={styles.permissionButtonText}>Grant Permission</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
@@ -73,15 +86,15 @@ export default function CameraDetectionScreen() {
   }
 
   const toggleCameraFacing = () => {
-    setFacing(current => (current === 'back' ? 'front' : 'back'));
+    setFacing((current) => (current === "back" ? "front" : "back"));
   };
 
-    const capturePhoto = async () => {
+  const capturePhoto = async () => {
     if (!cameraRef.current) return;
 
     try {
       setIsAnalyzing(true);
-      
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.3, // Reduce quality to prevent PayloadTooLarge
         base64: true,
@@ -91,32 +104,30 @@ export default function CameraDetectionScreen() {
       setCapturedImage(photo);
 
       // Convert to base64 for Gemini API
-      const response = await GeminiService.detectRecycleSymbol(photo.base64 || '');
-      
+      const response = await GeminiService.detectRecycleSymbol(
+        photo.base64 || ""
+      );
+
       if (response.error) {
         // Show detailed feedback like the older version
-        const message = response.error.includes('Detection failed') ? 
-          'No recycling symbol found. Try positioning the camera closer to the ♻️ symbol with better lighting.' :
-          response.error;
-          
-        Alert.alert(
-          'No Recycling Symbol Found',
-          message,
-          [
-            { text: 'Tips', onPress: showDetectionTips },
-            { text: 'Try Again', onPress: resetCamera }
-          ]
-        );
+        const message = response.error.includes("Detection failed")
+          ? "No recycling symbol found. Try positioning the camera closer to the ♻️ symbol with better lighting."
+          : response.error;
+
+        Alert.alert("No Recycling Symbol Found", message, [
+          { text: "Tips", onPress: showDetectionTips },
+          { text: "Try Again", onPress: resetCamera },
+        ]);
       } else {
         setDetectionResult(response);
         setShowResult(true);
       }
     } catch (error) {
-      console.error('Camera error:', error);
+      console.error("Camera error:", error);
       Alert.alert(
-        'Detection Error', 
-        'Failed to analyze image. Make sure you have good lighting and the recycling symbol is clearly visible.',
-        [{ text: 'Try Again', onPress: resetCamera }]
+        "Detection Error",
+        "Failed to analyze image. Make sure you have good lighting and the recycling symbol is clearly visible.",
+        [{ text: "Try Again", onPress: resetCamera }]
       );
     } finally {
       setIsAnalyzing(false);
@@ -125,11 +136,11 @@ export default function CameraDetectionScreen() {
 
   const showDetectionTips = () => {
     Alert.alert(
-      'Better Detection Tips',
-      '🔍 What to look for:\n• Triangular ♻️ symbol with number 1-7 inside\n• Usually found on bottom of containers\n\n💡 For better results:\n• Ensure good, even lighting\n• Move closer to fill the frame\n• Hold camera steady\n• Clean dirty or scratched surfaces\n• Try different angles if symbol is unclear',
+      "Better Detection Tips",
+      "🔍 What to look for:\n• Triangular ♻️ symbol with number 1-7 inside\n• Usually found on bottom of containers\n\n💡 For better results:\n• Ensure good, even lighting\n• Move closer to fill the frame\n• Hold camera steady\n• Clean dirty or scratched surfaces\n• Try different angles if symbol is unclear",
       [
-        { text: 'Got it!', onPress: resetCamera },
-        { text: 'Try Again', onPress: resetCamera }
+        { text: "Got it!", onPress: resetCamera },
+        { text: "Try Again", onPress: resetCamera },
       ]
     );
   };
@@ -156,11 +167,10 @@ export default function CameraDetectionScreen() {
           <View style={styles.errorContainer}>
             <Ionicons name="alert-circle" size={48} color="#FF5722" />
             <Text style={styles.errorTitle}>Detection Failed</Text>
-            <Text style={styles.errorText}>
-              {detectionResult.error}
-            </Text>
+            <Text style={styles.errorText}>{detectionResult.error}</Text>
             <Text style={styles.errorHint}>
-              Try taking a clearer photo with better lighting, focusing on the recycling symbol.
+              Try taking a clearer photo with better lighting, focusing on the
+              recycling symbol.
             </Text>
           </View>
         </View>
@@ -168,39 +178,50 @@ export default function CameraDetectionScreen() {
     }
 
     return (
-      <ScrollView style={styles.resultContainer} contentContainerStyle={styles.resultContent}>
+      <ScrollView
+        style={styles.resultContainer}
+        contentContainerStyle={styles.resultContent}
+      >
         <View style={styles.successContainer}>
           <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
           <Text style={styles.successTitle}>Symbol Detected!</Text>
-          
+
           {detectionResult.detectedSymbol && (
             <View style={styles.resultSection}>
               <Text style={styles.resultLabel}>Detected Symbol:</Text>
-              <Text style={styles.resultValue}>{detectionResult.detectedSymbol}</Text>
+              <Text style={styles.resultValue}>
+                {detectionResult.detectedSymbol}
+              </Text>
             </View>
           )}
-          
+
           {detectionResult.recyclingCode && (
             <View style={styles.resultSection}>
               <Text style={styles.resultLabel}>Recycling Code:</Text>
-              <Text style={styles.resultValue}>{detectionResult.recyclingCode}</Text>
+              <Text style={styles.resultValue}>
+                {detectionResult.recyclingCode}
+              </Text>
             </View>
           )}
-          
+
           {detectionResult.materialType && (
             <View style={styles.resultSection}>
               <Text style={styles.resultLabel}>Material Type:</Text>
-              <Text style={styles.resultValue}>{detectionResult.materialType}</Text>
+              <Text style={styles.resultValue}>
+                {detectionResult.materialType}
+              </Text>
             </View>
           )}
-          
+
           {detectionResult.disposalInstructions && (
             <View style={styles.resultSection}>
               <Text style={styles.resultLabel}>Disposal Instructions:</Text>
-              <Text style={styles.instructionsText}>{detectionResult.disposalInstructions}</Text>
+              <Text style={styles.instructionsText}>
+                {detectionResult.disposalInstructions}
+              </Text>
             </View>
           )}
-          
+
           {detectionResult.confidence && (
             <View style={styles.confidenceContainer}>
               <Text style={styles.confidenceText}>
@@ -217,22 +238,24 @@ export default function CameraDetectionScreen() {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => router.back()}
+        >
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recycle Symbol Detection</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={toggleCameraFacing}>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={toggleCameraFacing}
+        >
           <Ionicons name="camera-reverse" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
 
       {/* Camera View */}
       <View style={styles.cameraContainer}>
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing={facing}
-        >
+        <CameraView ref={cameraRef} style={styles.camera} facing={facing}>
           {/* Camera Overlay */}
           <View style={styles.overlay}>
             <View style={styles.topOverlay}>
@@ -240,23 +263,26 @@ export default function CameraDetectionScreen() {
                 Point your camera at a recycling symbol
               </Text>
             </View>
-            
+
             <View style={styles.centerOverlay}>
               <View style={styles.focusFrame} />
             </View>
-            
+
             <View style={styles.bottomOverlay}>
               {/* Tips Button */}
-              <TouchableOpacity 
-                style={styles.tipButton} 
+              <TouchableOpacity
+                style={styles.tipButton}
                 onPress={showDetectionTips}
               >
                 <Text style={styles.tipButtonText}>💡 Tips</Text>
               </TouchableOpacity>
-              
+
               {/* Capture Button */}
               <TouchableOpacity
-                style={[styles.captureButton, isAnalyzing && styles.captureButtonDisabled]}
+                style={[
+                  styles.captureButton,
+                  isAnalyzing && styles.captureButtonDisabled,
+                ]}
                 onPress={takePicture}
                 disabled={isAnalyzing}
               >
@@ -277,7 +303,9 @@ export default function CameraDetectionScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4CAF50" />
             <Text style={styles.loadingText}>Analyzing image...</Text>
-            <Text style={styles.loadingSubtext}>Detecting recycling symbols</Text>
+            <Text style={styles.loadingSubtext}>
+              Detecting recycling symbols
+            </Text>
           </View>
         </View>
       )}
@@ -297,11 +325,14 @@ export default function CameraDetectionScreen() {
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
-            
+
             {renderResult()}
-            
+
             <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.tryAgainButton} onPress={closeResult}>
+              <TouchableOpacity
+                style={styles.tryAgainButton}
+                onPress={closeResult}
+              >
                 <Text style={styles.tryAgainText}>Take Another Photo</Text>
               </TouchableOpacity>
             </View>
@@ -315,54 +346,54 @@ export default function CameraDetectionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   permissionContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   permissionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginTop: 20,
     marginBottom: 10,
   },
   permissionText: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginBottom: 30,
     lineHeight: 22,
   },
   permissionButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: Colors.secondary,
     paddingHorizontal: 30,
     paddingVertical: 12,
     borderRadius: 25,
     marginBottom: 15,
   },
   permissionButtonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   backButton: {
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
   backButtonText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FF5722',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
@@ -371,8 +402,8 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: "#fff",
   },
   cameraContainer: {
     flex: 1,
@@ -382,108 +413,108 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   topOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   instructionText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    textAlign: 'center',
-    fontWeight: '500',
+    textAlign: "center",
+    fontWeight: "500",
   },
   centerOverlay: {
     height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   focusFrame: {
     width: 200,
     height: 200,
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: "#fff",
     borderRadius: 20,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   bottomOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   captureButton: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FF5722',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FF5722",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 4,
-    borderColor: '#fff',
+    borderColor: "#fff",
   },
   captureButtonDisabled: {
-    backgroundColor: '#999',
+    backgroundColor: "#999",
   },
   captureButtonInner: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   loadingOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 30,
     borderRadius: 15,
-    alignItems: 'center',
+    alignItems: "center",
   },
   loadingText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginTop: 15,
   },
   loadingSubtext: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginTop: 5,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
+    maxHeight: "80%",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   resultContainer: {
     flex: 1,
@@ -493,87 +524,87 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   successContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   successTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#4CAF50',
+    fontWeight: "bold",
+    color: "#4CAF50",
     marginTop: 10,
     marginBottom: 20,
   },
   errorContainer: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   errorTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF5722',
+    fontWeight: "bold",
+    color: "#FF5722",
     marginTop: 10,
     marginBottom: 10,
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
     marginBottom: 10,
   },
   errorHint: {
     fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    color: "#999",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   resultSection: {
-    width: '100%',
+    width: "100%",
     marginBottom: 15,
   },
   resultLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontWeight: "600",
+    color: "#666",
     marginBottom: 5,
   },
   resultValue: {
     fontSize: 16,
-    color: '#333',
-    fontWeight: '500',
+    color: "#333",
+    fontWeight: "500",
   },
   instructionsText: {
     fontSize: 16,
-    color: '#333',
+    color: "#333",
     lineHeight: 22,
   },
   confidenceContainer: {
     marginTop: 15,
     paddingHorizontal: 15,
     paddingVertical: 8,
-    backgroundColor: '#E8F5E8',
+    backgroundColor: "#E8F5E8",
     borderRadius: 15,
   },
   confidenceText: {
     fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: "#4CAF50",
+    fontWeight: "600",
   },
   modalActions: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    borderTopColor: "#f0f0f0",
   },
   tryAgainButton: {
-    backgroundColor: '#FF5722',
+    backgroundColor: "#FF5722",
     paddingVertical: 15,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   tryAgainText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tipButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     paddingHorizontal: 18,
     paddingVertical: 12,
     borderRadius: 20,
@@ -581,16 +612,16 @@ const styles = StyleSheet.create({
     // Ensure minimum touch target
     minWidth: 60,
     minHeight: 44,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     // Better visual feedback
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   tipButtonText: {
-    color: 'white',
+    color: "white",
     fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

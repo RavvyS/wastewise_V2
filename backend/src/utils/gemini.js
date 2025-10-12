@@ -8,7 +8,7 @@ const GEMINI_VISION_URL = `https://generativelanguage.googleapis.com/v1beta/mode
 // EcoZen AI Chat - Specialized in waste separation education
 export const chatWithEcoZen = async (message, conversationHistory = []) => {
   try {
-    console.log('🤖 EcoZen: Processing message:', message);
+    console.log("🤖 EcoZen: Processing message:", message);
 
     // Create specialized prompt for waste separation education
     const systemPrompt = `You are EcoZen, a friendly and knowledgeable AI assistant specialized in waste separation and recycling education. Your mission is to help people learn how to properly separate, recycle, and dispose of different types of waste.
@@ -31,31 +31,35 @@ Current user message: "${message}"`;
     // Build conversation context
     const conversationText = conversationHistory
       .slice(-5) // Only use last 5 messages for context
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n');
+      .map((msg) => `${msg.role}: ${msg.content}`)
+      .join("\n");
 
-    const fullPrompt = conversationText 
+    const fullPrompt = conversationText
       ? `${systemPrompt}\n\nConversation history:\n${conversationText}\n\nPlease respond to the current message.`
       : systemPrompt;
 
     const requestBody = {
-      contents: [{
-        parts: [{
-          text: fullPrompt
-        }]
-      }],
+      contents: [
+        {
+          parts: [
+            {
+              text: fullPrompt,
+            },
+          ],
+        },
+      ],
       generationConfig: {
         temperature: 0.7,
         topK: 40,
         topP: 0.95,
         maxOutputTokens: 1024,
-      }
+      },
     };
 
     const response = await fetch(GEMINI_CHAT_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
     });
@@ -65,17 +69,16 @@ Current user message: "${message}"`;
     }
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       const aiResponse = data.candidates[0].content.parts[0].text;
-      console.log('✅ EcoZen: Response generated');
+      console.log("✅ EcoZen: Response generated");
       return aiResponse;
     } else {
-      throw new Error('Invalid response format from Gemini API');
+      throw new Error("Invalid response format from Gemini API");
     }
-
   } catch (error) {
-    console.error('❌ EcoZen chat error:', error);
+    console.error("❌ EcoZen chat error:", error);
     return "I'm having trouble connecting right now. Please try again later! 🤖";
   }
 };
@@ -83,7 +86,7 @@ Current user message: "${message}"`;
 // Object Detection - Recycle symbol recognition
 export const detectRecycleSymbol = async (imageBase64) => {
   try {
-    console.log('📷 Analyzing image for recycle symbols...');
+    console.log("📷 Analyzing image for recycle symbols...");
 
     const prompt = `Analyze this image and detect any recycling symbols or codes. Look for:
 
@@ -109,31 +112,33 @@ Format your response as JSON with these fields:
 }`;
 
     const requestBody = {
-      contents: [{
-        parts: [
-          {
-            text: prompt
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: imageBase64
-            }
-          }
-        ]
-      }],
+      contents: [
+        {
+          parts: [
+            {
+              text: prompt,
+            },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: imageBase64,
+              },
+            },
+          ],
+        },
+      ],
       generationConfig: {
         temperature: 0.1,
         topK: 32,
         topP: 1,
         maxOutputTokens: 2048,
-      }
+      },
     };
 
     const response = await fetch(GEMINI_VISION_URL, {
-      method: 'POST',
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
     });
@@ -143,11 +148,11 @@ Format your response as JSON with these fields:
     }
 
     const data = await response.json();
-    
+
     if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       const aiResponse = data.candidates[0].content.parts[0].text;
-      console.log('✅ Vision analysis complete');
-      
+      console.log("✅ Vision analysis complete");
+
       // Try to parse JSON response
       try {
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
@@ -155,26 +160,24 @@ Format your response as JSON with these fields:
           return JSON.parse(jsonMatch[0]);
         }
       } catch (parseError) {
-        console.log('⚠️ Could not parse JSON, using text response');
+        console.log("⚠️ Could not parse JSON, using text response");
       }
-      
+
       // If JSON parsing fails, return a structured response
       return {
         detectedSymbol: "Analysis completed",
         recyclingCode: "Unknown",
         materialType: "See instructions",
         disposalInstructions: aiResponse,
-        confidence: 0.7
+        confidence: 0.7,
       };
-      
     } else {
-      throw new Error('Invalid response format from Gemini Vision API');
+      throw new Error("Invalid response format from Gemini Vision API");
     }
-
   } catch (error) {
-    console.error('❌ Vision detection error:', error);
+    console.error("❌ Vision detection error:", error);
     return {
-      error: `Detection failed: ${error.message}. Please try again with a clearer image.`
+      error: `Detection failed: ${error.message}. Please try again with a clearer image.`,
     };
   }
 };

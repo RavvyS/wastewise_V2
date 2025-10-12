@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -12,23 +12,25 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
-} from 'react-native';
+} from "react-native";
 
-const { width } = Dimensions.get('window');
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { GeminiService, GeminiChatMessage } from '../utils/gemini';
+const { width } = Dimensions.get("window");
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { GeminiService, GeminiChatMessage } from "../utils/gemini";
+import { EcoZenLogo } from "../components/EcoZenLogo";
+import { Colors } from "../constants/Colors";
 
 export default function ChatbotScreen() {
   const [messages, setMessages] = useState<GeminiChatMessage[]>([]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     // Add welcome message
     const welcomeMessage: GeminiChatMessage = {
-      role: 'assistant',
+      role: "assistant",
       content: GeminiService.getWelcomeMessage(),
       timestamp: new Date(),
     };
@@ -46,36 +48,36 @@ export default function ChatbotScreen() {
     if (!inputText.trim() || isLoading) return;
 
     const userMessage: GeminiChatMessage = {
-      role: 'user',
+      role: "user",
       content: inputText.trim(),
       timestamp: new Date(),
     };
 
     // Add user message to chat
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     const currentInput = inputText.trim();
-    setInputText('');
+    setInputText("");
     setIsLoading(true);
 
     try {
       // Get response from EcoZen AI
-      const response = await GeminiService.chatWithEcoZen(
-        currentInput,
-        [...messages, userMessage]
-      );
+      const response = await GeminiService.chatWithEcoZen(currentInput, [
+        ...messages,
+        userMessage,
+      ]);
 
       const assistantMessage: GeminiChatMessage = {
-        role: 'assistant',
+        role: "assistant",
         content: response,
         timestamp: new Date(),
       };
 
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error("Chat error:", error);
       Alert.alert(
-        'Connection Error',
-        'Failed to get response from EcoZen. Please check your connection and try again.'
+        "Connection Error",
+        "Failed to get response from EcoZen. Please check your connection and try again."
       );
     } finally {
       setIsLoading(false);
@@ -83,8 +85,8 @@ export default function ChatbotScreen() {
   };
 
   const renderMessage = (message: GeminiChatMessage, index: number) => {
-    const isUser = message.role === 'user';
-    
+    const isUser = message.role === "user";
+
     return (
       <View
         key={index}
@@ -119,8 +121,8 @@ export default function ChatbotScreen() {
             ]}
           >
             {message.timestamp.toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
+              hour: "2-digit",
+              minute: "2-digit",
             })}
           </Text>
         </View>
@@ -141,21 +143,23 @@ export default function ChatbotScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Ionicons name="arrow-back" size={24} color="#fff" />
+          <Ionicons name="arrow-back" size={24} color={Colors.textWhite} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>EcoZen AI</Text>
-          <Text style={styles.headerSubtitle}>Waste Separation Assistant</Text>
+          <EcoZenLogo size="small" showTagline={false} color="white" />
+          <Text style={styles.headerSubtitle}>
+            AI Waste Separation Assistant
+          </Text>
         </View>
         <View style={styles.headerAvatar}>
-          <Text style={styles.headerAvatarText}>🤖</Text>
+          <Ionicons name="leaf" size={24} color={Colors.textWhite} />
         </View>
       </View>
 
       {/* Chat Messages */}
       <KeyboardAvoidingView
         style={styles.chatContainer}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
           ref={scrollViewRef}
@@ -164,7 +168,7 @@ export default function ChatbotScreen() {
           showsVerticalScrollIndicator={false}
         >
           {messages.map((message, index) => renderMessage(message, index))}
-          
+
           {/* Loading indicator */}
           {isLoading && (
             <View style={styles.loadingContainer}>
@@ -197,7 +201,7 @@ export default function ChatbotScreen() {
             <Ionicons
               name="send"
               size={20}
-              color={!inputText.trim() || isLoading ? '#ccc' : '#fff'}
+              color={!inputText.trim() || isLoading ? "#ccc" : "#fff"}
             />
           </TouchableOpacity>
         </View>
@@ -209,16 +213,16 @@ export default function ChatbotScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: Colors.backgroundLight,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#4CAF50',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.primary,
     paddingHorizontal: width < 400 ? 12 : 16,
     paddingVertical: width < 400 ? 10 : 12,
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -234,20 +238,21 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
+    fontWeight: "bold",
+    color: Colors.textWhite,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: 4,
   },
   headerAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: Colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerAvatarText: {
     fontSize: 20,
@@ -263,23 +268,23 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   messageContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 16,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   userMessage: {
-    justifyContent: 'flex-end',
+    justifyContent: "flex-end",
   },
   assistantMessage: {
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   assistantAvatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E8F5E8',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#E8F5E8",
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: 8,
   },
   assistantAvatarText: {
@@ -289,13 +294,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#2196F3',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#2196F3",
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 8,
   },
   messageBubble: {
-    maxWidth: width < 400 ? '80%' : '75%', // More space on small screens
+    maxWidth: width < 400 ? "80%" : "75%", // More space on small screens
     paddingHorizontal: width < 400 ? 12 : 16,
     paddingVertical: width < 400 ? 10 : 12,
     borderRadius: 18,
@@ -303,29 +308,29 @@ const styles = StyleSheet.create({
     minHeight: 40,
   },
   userBubble: {
-    backgroundColor: '#2196F3',
+    backgroundColor: "#2196F3",
     borderBottomRightRadius: 6,
   },
   assistantBubble: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomLeftRadius: 6,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)', // Subtle border for better definition
+    borderColor: "rgba(0,0,0,0.05)", // Subtle border for better definition
   },
   messageText: {
     fontSize: width < 400 ? 14 : 16, // Responsive font size
     lineHeight: width < 400 ? 18 : 22, // Better line height for readability
   },
   userText: {
-    color: '#fff',
+    color: "#fff",
   },
   assistantText: {
-    color: '#333',
+    color: "#333",
   },
   timestamp: {
     fontSize: 10,
@@ -333,34 +338,34 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   userTimestamp: {
-    color: '#fff',
-    textAlign: 'right',
+    color: "#fff",
+    textAlign: "right",
   },
   assistantTimestamp: {
-    color: '#666',
+    color: "#666",
   },
   loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   loadingText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
+    color: "#666",
+    fontStyle: "italic",
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     padding: width < 400 ? 12 : 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: "#e0e0e0",
     // Better shadow for separation
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -371,13 +376,13 @@ const styles = StyleSheet.create({
     maxHeight: width < 400 ? 80 : 100,
     paddingHorizontal: width < 400 ? 12 : 16,
     paddingVertical: width < 400 ? 8 : 12,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderRadius: width < 400 ? 18 : 20,
     fontSize: width < 400 ? 14 : 16,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     // Better border for definition
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: "#e0e0e0",
     // Improved accessibility
     includeFontPadding: false,
   },
@@ -385,19 +390,19 @@ const styles = StyleSheet.create({
     width: width < 400 ? 44 : 48, // Ensure minimum touch target
     height: width < 400 ? 44 : 48,
     borderRadius: width < 400 ? 22 : 24,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#4CAF50",
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: width < 400 ? 8 : 12,
     // Better visual feedback
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
   },
   sendButtonDisabled: {
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     elevation: 0,
     shadowOpacity: 0,
   },

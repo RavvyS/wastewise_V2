@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -6,11 +6,12 @@ import {
   Animated,
   Dimensions,
   Text,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { Colors } from "../constants/Colors";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 interface FABProps {
   onEcoZenPress?: () => void;
@@ -23,14 +24,14 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
 
   const toggleFAB = () => {
     const toValue = isOpen ? 0 : 1;
-    
+
     Animated.spring(animation, {
       toValue,
       friction: 6,
       tension: 40,
       useNativeDriver: true,
     }).start();
-    
+
     setIsOpen(!isOpen);
   };
 
@@ -42,11 +43,11 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
       tension: 40,
       useNativeDriver: true,
     }).start();
-    
+
     if (onEcoZenPress) {
       onEcoZenPress();
     } else {
-      router.push('/chatbot');
+      router.push("/chatbot");
     }
   };
 
@@ -58,17 +59,17 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
       tension: 40,
       useNativeDriver: true,
     }).start();
-    
+
     if (onCameraPress) {
       onCameraPress();
     } else {
-      router.push('/camera-detection');
+      router.push("/camera-detection");
     }
   };
 
   const mainButtonRotation = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '45deg'],
+    outputRange: ["0deg", "45deg"],
   });
 
   const subButtonScale = animation.interpolate({
@@ -83,12 +84,12 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
 
   const ecoZenTranslateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -80],
+    outputRange: [0, -100],
   });
 
   const cameraTranslateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -140],
+    outputRange: [0, -200],
   });
 
   return (
@@ -173,18 +174,18 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
-    bottom: width < 400 ? 80 : 100, // Adjust for smaller screens
+    position: "absolute",
+    bottom: width < 400 ? 120 : 140, // Moved up significantly to clear tab bar
     right: width < 400 ? 16 : 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   backdrop: {
-    position: 'absolute',
+    position: "absolute",
     top: -height,
     left: -width,
     width: width * 2,
     height: height * 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Slightly darker for better contrast
+    backgroundColor: "rgba(0, 0, 0, 0.4)", // Slightly darker for better contrast
   },
   mainFAB: {
     zIndex: 3,
@@ -193,11 +194,11 @@ const styles = StyleSheet.create({
     width: width < 400 ? 56 : 60, // Responsive sizing
     height: width < 400 ? 56 : 60,
     borderRadius: width < 400 ? 28 : 30,
-    backgroundColor: '#4CAF50',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: Colors.secondary,
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -205,8 +206,8 @@ const styles = StyleSheet.create({
     borderWidth: 0,
   },
   subFAB: {
-    position: 'absolute',
-    alignItems: 'center',
+    position: "absolute",
+    alignItems: "center",
     zIndex: 2,
   },
   ecoZenFAB: {
@@ -219,10 +220,10 @@ const styles = StyleSheet.create({
     width: width < 400 ? 48 : 50, // Responsive sizing
     height: width < 400 ? 48 : 50,
     borderRadius: width < 400 ? 24 : 25,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 6,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -231,23 +232,23 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   ecoZenButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: Colors.primary,
   },
   cameraButton: {
-    backgroundColor: '#FF5722',
+    backgroundColor: Colors.accent,
   },
   subFABLabel: {
     marginTop: 8,
     fontSize: width < 400 ? 11 : 12, // Responsive font size
-    color: '#333',
-    fontWeight: '600',
-    textAlign: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Better contrast
+    color: "#333",
+    fontWeight: "600",
+    textAlign: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.95)", // Better contrast
     paddingHorizontal: width < 400 ? 6 : 8,
     paddingVertical: 4,
     borderRadius: 12,
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,

@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { EcoZenLogo } from "../components/EcoZenLogo";
+import { Colors } from "../constants/Colors";
 
 const { width, height } = Dimensions.get("window");
 
@@ -33,42 +35,42 @@ export default function WelcomeScreen() {
     {
       id: 1,
       title: "Learn. Separate. Recycle.",
-      subtitle: "Welcome to EcoSeparate",
+      subtitle: "Welcome to EcoZen AI",
       description:
-        "Your journey to becoming an eco-warrior starts here. Learn proper waste separation and make a positive impact on our planet.",
+        "Your journey to becoming an eco-warrior starts here. Learn proper waste separation with AI-powered guidance and make a positive impact on our planet.",
       icon: "leaf",
-      color: "#4CAF50",
-      backgroundColor: "#E8F5E8",
+      color: Colors.secondary,
+      backgroundColor: Colors.backgroundLight,
     },
     {
       id: 2,
-      title: "Track Your Impact",
-      subtitle: "Monitor Your Progress",
+      title: "AI-Powered Chatbot",
+      subtitle: "EcoZen Assistant",
       description:
-        "Log your daily recycling activities and watch your positive environmental impact grow day by day.",
-      icon: "analytics",
-      color: "#2196F3",
-      backgroundColor: "#E3F2FD",
+        "Get instant answers about waste separation, recycling tips, and environmental questions from our intelligent EcoZen AI assistant.",
+      icon: "chatbubbles",
+      color: Colors.primary,
+      backgroundColor: Colors.surfaceVariant,
     },
     {
       id: 3,
-      title: "Find Recycling Centers",
-      subtitle: "Locate Nearby Centers",
+      title: "Camera Detection",
+      subtitle: "Smart Recognition",
       description:
-        "Discover recycling centers near you with detailed information about accepted materials and operating hours.",
-      icon: "location",
-      color: "#FF9800",
-      backgroundColor: "#FFF8E1",
+        "Use your camera to instantly identify recycling symbols and get guidance on proper disposal methods for any item.",
+      icon: "camera",
+      color: Colors.accent,
+      backgroundColor: Colors.backgroundLight,
     },
     {
       id: 4,
-      title: "Learn & Grow",
-      subtitle: "Educational Content",
+      title: "Track Your Impact",
+      subtitle: "Monitor Progress",
       description:
-        "Take quizzes, read articles, and expand your knowledge about waste separation and environmental protection.",
-      icon: "school",
-      color: "#9C27B0",
-      backgroundColor: "#F3E5F5",
+        "Log your daily recycling activities and watch your positive environmental impact grow with detailed insights and achievements.",
+      icon: "analytics",
+      color: Colors.secondary,
+      backgroundColor: Colors.surfaceVariant,
     },
   ];
 
@@ -110,8 +112,9 @@ export default function WelcomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* Header with Skip Button */}
+      {/* Header with EcoZen Logo and Skip Button */}
       <View style={styles.header}>
+        <EcoZenLogo size="small" showTagline={false} />
         <TouchableOpacity style={styles.skipButton} onPress={skipToAuth}>
           <Text style={styles.skipText}>Skip</Text>
         </TouchableOpacity>
@@ -222,7 +225,8 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,

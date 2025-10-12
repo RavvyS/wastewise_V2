@@ -11,11 +11,12 @@ import {
   Dimensions,
 } from "react-native";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { apiGet, API_ENDPOINTS } from "../../utils/api";
 import FAB from "../../components/FAB";
+import { Colors } from "../../constants/Colors";
 
 export default function HomeScreen() {
   const [testing, setTesting] = useState(false);
@@ -44,7 +45,7 @@ export default function HomeScreen() {
       id: 1,
       title: "Waste Log",
       icon: "create-outline" as const,
-      color: "#4CAF50",
+      color: Colors.secondary,
       description: "Log your daily recycling",
       route: "/waste-log",
     },
@@ -52,7 +53,7 @@ export default function HomeScreen() {
       id: 2,
       title: "Recycling Locations",
       icon: "location-outline" as const,
-      color: "#2196F3",
+      color: Colors.primary,
       description: "Find nearby centers",
       route: "/locations",
     },
@@ -60,17 +61,17 @@ export default function HomeScreen() {
       id: 3,
       title: "Learning Hub",
       icon: "library-outline" as const,
-      color: "#FF9800",
+      color: Colors.accent,
       description: "Quizzes & articles",
       route: "/learning",
     },
     {
       id: 4,
-      title: "Profile",
-      icon: "person-outline" as const,
-      color: "#9C27B0",
-      description: "Manage your account",
-      route: "/profile",
+      title: "EcoZen AI Chat",
+      icon: "chatbubbles-outline" as const,
+      color: Colors.primary,
+      description: "Ask waste separation questions",
+      route: "/chatbot",
     },
   ];
 
@@ -115,8 +116,7 @@ export default function HomeScreen() {
         {/* Header Section */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>Learn. Separate. Recycle.</Text>
-            <Text style={styles.username}>Welcome to EcoSeparate</Text>
+            <Text style={styles.username}>Welcome to your eco journey!</Text>
           </View>
           <View style={styles.headerRight}>
             <TouchableOpacity
@@ -127,14 +127,18 @@ export default function HomeScreen() {
               <Ionicons
                 name={testing ? "refresh" : "cloud-outline"}
                 size={20}
-                color="#4CAF50"
+                color={Colors.secondary}
               />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.profileButton}
               onPress={() => handleNavigation("/profile")}
             >
-              <Ionicons name="person-circle-outline" size={40} color="#666" />
+              <Ionicons
+                name="person-circle-outline"
+                size={40}
+                color={Colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -244,7 +248,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
-      
+
       {/* Floating Action Button */}
       <FAB />
     </SafeAreaView>
@@ -254,7 +258,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: Colors.backgroundLight,
   },
   header: {
     flexDirection: "row",
@@ -264,15 +268,24 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 30,
   },
+  headerLeft: {
+    flex: 1,
+    alignItems: "flex-start",
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   greeting: {
     fontSize: 24,
     fontWeight: "600",
-    color: "#333",
+    color: Colors.text,
   },
   username: {
     fontSize: 16,
-    color: "#666",
-    marginTop: 4,
+    color: Colors.textSecondary,
+    marginTop: 8,
   },
   profileButton: {
     padding: 4,
@@ -463,20 +476,13 @@ const styles = StyleSheet.create({
   },
   tipText: {
     fontSize: 14,
-    color: "#666",
+    color: Colors.textSecondary,
     lineHeight: 20,
-  },
-  headerLeft: {
-    flex: 1,
-  },
-  headerRight: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   testButton: {
     padding: 8,
     marginRight: 12,
     borderRadius: 8,
-    backgroundColor: "#E8F5E8",
+    backgroundColor: Colors.backgroundDark,
   },
 });
