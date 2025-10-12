@@ -1084,6 +1084,12 @@ app.use("/api/gemini", geminiRouter);
 
 /* ========== START SERVER ========== */
 
-app.listen(PORT, () => {
-  console.log("Server is running on port", PORT);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log("Server is running on port", PORT);
+  });
+}
+
+// Export for Vercel
+export default app;
