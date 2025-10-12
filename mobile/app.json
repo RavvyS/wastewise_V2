@@ -38,6 +38,13 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [],
+          "icon": "./assets/images/icon.png"
+        }
       ]
     ],
     "experiments": {

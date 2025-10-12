@@ -1,10 +1,12 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import NotificationHandler from "../components/NotificationHandler";
 
 export default function RootLayout() {
   return (
     <>
       <StatusBar style="dark" />
+      <NotificationHandler />
       <Stack
         screenOptions={{
           headerShown: false, // We'll handle headers in individual screens

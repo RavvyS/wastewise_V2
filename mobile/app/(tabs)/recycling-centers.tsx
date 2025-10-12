@@ -10,9 +10,11 @@ import {
   Alert,
   RefreshControl,
   Linking,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
+import * as Location from 'expo-location';
 import { apiGet, apiDelete, API_ENDPOINTS } from '../../utils/api';
 
 interface RecyclingCenter {
@@ -24,7 +26,9 @@ interface RecyclingCenter {
   hours?: string;
   services?: string[];
   rating?: number;
-  distance?: number;
+  latitude?: string;
+  longitude?: string;
+  distance?: number; // Calculated distance
   createdAt?: string;
 }
 
@@ -35,20 +39,97 @@ export default function RecyclingCentersTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [expandedHours, setExpandedHours] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
+  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const filterOptions = ['All', 'Plastic', 'Glass', 'Metal', 'Paper', 'Electronics', 'Batteries', 'Organic Waste'];
 
-  useFocusEffect(
-    useCallback(() => {
-      loadRecyclingCenters();
-    }, [])
-  );
+    // Get user location on mount only
+    useEffect(() => {
+      getUserLocation();
+    }, []);
+  
+    // Reload centers every time screen comes into focus
+    useFocusEffect(
+      useCallback(() => {
+        console.log('🔄 Screen focused - reloading centers');
+        loadRecyclingCenters();
+      }, [])
+    );
+
+  // Recalculate distances when user location or centers change
+  useEffect(() => {
+    if (userLocation && recyclingCenters.length > 0) {
+      // Only update if at least one center doesn't have a distance yet
+      const needsUpdate = recyclingCenters.some(center => 
+        center.latitude && center.longitude && center.distance === undefined
+      );
+      
+      if (needsUpdate) {
+        const centersWithDistance = recyclingCenters.map((center) => {
+          if (center.latitude && center.longitude) {
+            const distance = calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              parseFloat(center.latitude),
+              parseFloat(center.longitude)
+            );
+            return { ...center, distance: Math.round(distance * 10) / 10 };
+          }
+          return center;
+        });
+        setRecyclingCenters(centersWithDistance);
+      }
+    }
+  }, [userLocation, recyclingCenters]);
+
+  const getUserLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+      }
+    } catch (error) {
+      console.error('Error getting location:', error);
+    }
+  };
+
+  // Calculate distance using Haversine formula
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  };
 
   const loadRecyclingCenters = async () => {
     try {
       setLoading(true);
       const centers = await apiGet(API_ENDPOINTS.CENTERS);
-      setRecyclingCenters(centers);
+      
+      // Calculate distance for each center if user location is available
+      const centersWithDistance = centers.map((center: RecyclingCenter) => {
+        if (userLocation && center.latitude && center.longitude) {
+          const distance = calculateDistance(
+            userLocation.latitude,
+            userLocation.longitude,
+            parseFloat(center.latitude),
+            parseFloat(center.longitude)
+          );
+          return { ...center, distance: Math.round(distance * 10) / 10 }; // Round to 1 decimal
+        }
+        return center;
+      });
+      
+      setRecyclingCenters(centersWithDistance);
     } catch (error) {
       console.error('Error loading recycling centers:', error);
       Alert.alert('Error', 'Failed to load recycling centers');
@@ -109,15 +190,35 @@ export default function RecyclingCentersTab() {
 
   const openWebsite = (website?: string) => {
     if (website && website.trim()) {
-      Linking.openURL(website);
+      let url = website.trim();
+      // Add https:// if no protocol is specified
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'https://' + url;
+      }
+      Linking.openURL(url).catch(() => {
+        Alert.alert('Error', 'Could not open website');
+      });
     } else {
       Alert.alert('No Website', 'This center does not have a website listed.');
     }
   };
 
-  const getDirections = (address: string) => {
-    const encodedAddress = encodeURIComponent(address);
-    Linking.openURL(`https://maps.google.com/?q=${encodedAddress}`);
+  const getDirections = (center: RecyclingCenter) => {
+    // Use coordinates if available for more accurate navigation
+    if (center.latitude && center.longitude) {
+      // Use Google Maps Directions API - opens with directions ready, user taps Start
+      const url = `https://www.google.com/maps/dir/?api=1&destination=${center.latitude},${center.longitude}`;
+      
+      Linking.openURL(url).catch(() => {
+        Alert.alert('Error', 'Could not open directions');
+      });
+    } else {
+      // Fallback to address if no coordinates
+      const encodedAddress = encodeURIComponent(center.address);
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`).catch(() => {
+        Alert.alert('Error', 'Could not open directions');
+      });
+    }
   };
 
   const parseOperatingHours = (hoursString?: string) => {
@@ -206,7 +307,11 @@ export default function RecyclingCentersTab() {
             </View>
           )}
           {item.distance !== undefined && item.distance > 0 && (
-            <Text style={styles.distanceText}>{item.distance} miles</Text>
+            <Text style={styles.distanceText}>
+              {item.distance < 1 
+                ? `${Math.round(item.distance * 1000)} m` 
+                : `${item.distance} km`}
+            </Text>
           )}
         </View>
       </View>
@@ -258,7 +363,7 @@ export default function RecyclingCentersTab() {
         
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => getDirections(item.address)}
+          onPress={() => getDirections(item)}
         >
           <MaterialIcons name="directions" size={18} color="#2196F3" />
           <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>Directions</Text>
@@ -307,17 +412,25 @@ export default function RecyclingCentersTab() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>📍 Recycling Centers</Text>
+          <Text style={styles.headerTitle}>Recycling Centers</Text>
           <Text style={styles.headerSubtitle}>
             {recyclingCenters.length} centers found
           </Text>
         </View>
-        <TouchableOpacity 
-          style={styles.addButton}
-          onPress={() => router.push('/screens/recyclingcenters/AddRecyclingCenterScreen')}
-        >
-          <MaterialIcons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity 
+            style={styles.mapButton}
+            onPress={() => router.push('/screens/recyclingcenters/MapViewScreen')}
+          >
+            <MaterialIcons name="map" size={24} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.addButton}
+            onPress={() => router.push('/screens/recyclingcenters/AddRecyclingCenterScreen')}
+          >
+            <MaterialIcons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filters */}
@@ -438,6 +551,18 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 16,
     color: '#666',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mapButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2196F3',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
     width: 40,

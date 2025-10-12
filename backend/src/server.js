@@ -632,7 +632,7 @@ app.delete("/api/articles/:id", async (req, res) => {
 // Create recycling center
 app.post("/api/centers", async (req, res) => {
   try {
-    const { name, address, phone, website, hours, services, rating, distance } = req.body;
+    const { name, address, phone, website, hours, services, rating, latitude, longitude } = req.body;
     
     // Validate required fields
     if (!name || !address) {
@@ -649,7 +649,8 @@ app.post("/api/centers", async (req, res) => {
         hours: hours || null,
         services: services ? JSON.stringify(services) : null,
         rating: rating || 0,
-        distance: distance || 0,
+        latitude: latitude || null,
+        longitude: longitude || null,
         isApproved: false,
       })
       .returning();
@@ -688,7 +689,7 @@ app.get("/api/centers", async (req, res) => {
 // Update recycling center
 app.put("/api/centers/:id", async (req, res) => {
   try {
-    const { name, address, phone, website, hours, services, rating, distance } = req.body;
+    const { name, address, phone, website, hours, services, rating, latitude, longitude } = req.body;
     const centerId = Number(req.params.id);
 
     const updateData = {
@@ -699,7 +700,8 @@ app.put("/api/centers/:id", async (req, res) => {
       hours: hours || null,
       services: services ? JSON.stringify(services) : null,
       ...(rating !== undefined && { rating }),
-      ...(distance !== undefined && { distance }),
+      ...(latitude !== undefined && { latitude: latitude || null }),
+      ...(longitude !== undefined && { longitude: longitude || null }),
     };
 
     const updated = await db
@@ -747,30 +749,205 @@ app.delete("/api/centers/:id", async (req, res) => {
 });
 
 /* ========== INQUIRIES ========== */
+// TODO: Add authenticateToken middleware when auth is implemented
+// Create inquiry (draft)
 app.post("/api/inquiries", async (req, res) => {
-  const inquiry = await db.insert(inquiriesTable).values(req.body).returning();
-  res.json(inquiry);
+  try {
+    const { title, question, category } = req.body;
+    
+    if (!title || !question) {
+      return res.status(400).json({ error: "Title and question are required" });
+    }
+
+    const inquiry = await db.insert(inquiriesTable).values({
+      userId: 1, // TODO: Use req.user.id when auth is implemented
+      title,
+      question,
+      category: category || null,
+      status: "draft",
+    }).returning();
+    
+    res.json(inquiry[0]);
+  } catch (error) {
+    console.error("Create inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Get all inquiries for user (draft and sent)
 app.get("/api/inquiries", async (req, res) => {
-  const inq = await db.select().from(inquiriesTable);
-  res.json(inq);
+  try {
+    // TODO: Filter by userId when auth is implemented
+    // const inquiries = await db.select().from(inquiriesTable).where(eq(inquiriesTable.userId, req.user.id));
+    const inquiries = await db.select().from(inquiriesTable);
+    res.json(inquiries);
+  } catch (error) {
+    console.error("Get inquiries error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Get sent inquiries (sent + answered) for answering
+app.get("/api/inquiries/sent", async (req, res) => {
+  try {
+    // TODO: Filter by userId when auth is implemented
+    const inquiries = await db.select().from(inquiriesTable);
+    
+    // Filter sent and answered on backend
+    const sentInquiries = inquiries.filter(i => i.status === 'sent' || i.status === 'answered');
+    res.json(sentInquiries);
+  } catch (error) {
+    console.error("Get sent inquiries error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update inquiry (only if draft)
 app.put("/api/inquiries/:id", async (req, res) => {
-  const updated = await db
-    .update(inquiriesTable)
-    .set(req.body)
-    .where(eq(inquiriesTable.id, Number(req.params.id)))
-    .returning();
-  res.json(updated);
+  try {
+    const { title, question, category } = req.body;
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // TODO: Check userId when auth is implemented
+    // if (existing[0].userId !== req.user.id) {
+    //   return res.status(403).json({ error: "Unauthorized" });
+    // }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Cannot edit inquiry that has been sent" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ title, question, category })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Update inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
+// Send inquiry (change status from draft to sent)
+app.post("/api/inquiries/:id/send", async (req, res) => {
+  try {
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // TODO: Check userId when auth is implemented
+    // if (existing[0].userId !== req.user.id) {
+    //   return res.status(403).json({ error: "Unauthorized" });
+    // }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Inquiry has already been sent" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ status: 'sent', sentAt: new Date() })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Send inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Answer inquiry (change status from sent to answered)
+app.post("/api/inquiries/:id/answer", async (req, res) => {
+  try {
+    const { response } = req.body;
+    const inquiryId = Number(req.params.id);
+
+    if (!response) {
+      return res.status(400).json({ error: "Response is required" });
+    }
+
+    // Check if inquiry exists and is in sent status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // TODO: Check userId when auth is implemented
+    // if (existing[0].userId !== req.user.id) {
+    //   return res.status(403).json({ error: "Unauthorized" });
+    // }
+
+    if (existing[0].status !== 'sent') {
+      return res.status(400).json({ error: "Can only answer sent inquiries" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ 
+        response, 
+        status: 'answered', 
+        respondedAt: new Date() 
+      })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Answer inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete inquiry (only if draft)
 app.delete("/api/inquiries/:id", async (req, res) => {
-  await db
-    .delete(inquiriesTable)
-    .where(eq(inquiriesTable.id, Number(req.params.id)));
-  res.json({ success: true });
+  try {
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // TODO: Check userId when auth is implemented
+    // if (existing[0].userId !== req.user.id) {
+    //   return res.status(403).json({ error: "Unauthorized" });
+    // }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Cannot delete inquiry that has been sent" });
+    }
+
+    await db
+      .delete(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
 });
 
 /* ========== WASTE LOGS ========== */

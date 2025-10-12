@@ -12,6 +12,7 @@ import {
   TextInput,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 
 interface UserProfile {
   name: string;
@@ -282,8 +283,22 @@ export default function ProfileScreen() {
               <Ionicons name="settings" size={24} color="#666" />
               <Text style={styles.quickActionText}>Settings</Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => router.push('/screens/inquiries/InquiriesScreen')}
+            >
+              <Ionicons name="send" size={24} color="#4CAF50" />
+              <Text style={styles.quickActionText}>Send Inquiry</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.quickActionButton}
+              onPress={() => router.push('/screens/inquiries/AnswerInquiriesScreen')}
+            >
+              <Ionicons name="mail" size={24} color="#2196F3" />
+              <Text style={styles.quickActionText}>Answer Inquiries</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionButton}>
-              <Ionicons name="share" size={24} color="#2196F3" />
+              <Ionicons name="share" size={24} color="#FF9800" />
               <Text style={styles.quickActionText}>Share App</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionButton}>

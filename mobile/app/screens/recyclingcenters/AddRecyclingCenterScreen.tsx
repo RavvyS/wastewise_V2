@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
   Modal,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { apiPost, apiPut, API_ENDPOINTS } from '../../../utils/api';
+import { getTempLocation, clearTempLocation } from './locationStorage';
 
 const COMMON_SERVICES = [
   'Plastic',
@@ -54,7 +55,8 @@ export default function AddRecyclingCenterScreen() {
   const [phone, setPhone] = useState(editCenter ? editCenter.phone : '');
   const [website, setWebsite] = useState(editCenter ? editCenter.website : '');
   const [rating, setRating] = useState(editCenter ? editCenter.rating || 0 : 0);
-  const [distance, setDistance] = useState(editCenter ? String(editCenter.distance || 0) : '0');
+  const [latitude, setLatitude] = useState(editCenter ? editCenter.latitude || '' : '');
+  const [longitude, setLongitude] = useState(editCenter ? editCenter.longitude || '' : '');
   const [services, setServices] = useState<string[]>(
     editCenter ? editCenter.services || [] : []
   );
@@ -69,6 +71,20 @@ export default function AddRecyclingCenterScreen() {
   // Time input modal state
   const [timeInput, setTimeInput] = useState('09:00');
   const [selectedPeriod, setSelectedPeriod] = useState('AM');
+
+  // Check for location from temporary storage when screen comes back into focus
+  useFocusEffect(
+    useCallback(() => {
+      const tempLocation = getTempLocation();
+      if (tempLocation) {
+        console.log('Location received from map picker:', tempLocation);
+        setLatitude(tempLocation.latitude);
+        setLongitude(tempLocation.longitude);
+        // Clear the temp storage after using it
+        clearTempLocation();
+      }
+    }, [])
+  );
 
   // Initialize hours structure
   function initializeHours(): OperatingHours {
@@ -320,7 +336,6 @@ export default function AddRecyclingCenterScreen() {
     }
 
     const ratingNum = rating;
-    const distanceNum = parseFloat(distance) || 0;
     const hoursString = formatOperatingHours();
 
     const centerData = {
@@ -331,8 +346,11 @@ export default function AddRecyclingCenterScreen() {
       services: services,
       website: website.trim(),
       rating: ratingNum,
-      distance: distanceNum,
+      latitude: latitude || null,
+      longitude: longitude || null,
     };
+
+    console.log('Saving center with data:', centerData);
 
     try {
       if (editCenter) {
@@ -446,14 +464,30 @@ export default function AddRecyclingCenterScreen() {
           <Text style={styles.label}>Rating</Text>
           {renderStarRating()}
 
-          <Text style={styles.label}>Distance (miles)</Text>
-          <TextInput
-            style={styles.input}
-            value={distance}
-            onChangeText={setDistance}
-            placeholder="e.g., 1.2"
-            keyboardType="decimal-pad"
-          />
+          <Text style={styles.label}>Location</Text>
+          <TouchableOpacity
+            style={styles.mapPickerButton}
+            onPress={() => router.push({
+              pathname: '/screens/recyclingcenters/MapPickerScreen',
+              params: {
+                latitude: latitude || '',
+                longitude: longitude || '',
+              }
+            })}
+          >
+            <MaterialIcons name="location-on" size={24} color="#4CAF50" />
+            <View style={styles.mapPickerTextContainer}>
+              <Text style={styles.mapPickerButtonText}>
+                {latitude && longitude ? 'Location Selected' : 'Select Location on Map'}
+              </Text>
+              {latitude && longitude && (
+                <Text style={styles.mapPickerCoords}>
+                  Lat: {parseFloat(latitude).toFixed(6)}, Lng: {parseFloat(longitude).toFixed(6)}
+                </Text>
+              )}
+            </View>
+            <MaterialIcons name="chevron-right" size={24} color="#666" />
+          </TouchableOpacity>
 
           <Text style={styles.label}>Services</Text>
           <View style={styles.optionsContainer}>
@@ -671,6 +705,32 @@ const styles = StyleSheet.create({
     color: '#333',
     marginLeft: 12,
     fontWeight: '600',
+  },
+  
+  // Map Picker Button Styles
+  mapPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    marginBottom: 12,
+    gap: 12,
+  },
+  mapPickerTextContainer: {
+    flex: 1,
+  },
+  mapPickerButtonText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  mapPickerCoords: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
   },
   
   // Modal Styles
