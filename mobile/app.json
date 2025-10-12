@@ -41,6 +41,13 @@
           }
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "sounds": [],
+          "icon": "./assets/images/icon.png"
+        }
+      ],
       "expo-web-browser"
     ],
     "experiments": {
@@ -49,3 +56,4 @@
     }
   }
 }
+
