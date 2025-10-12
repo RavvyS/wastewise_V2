@@ -146,9 +146,19 @@ export default function AuthScreen() {
         name: error.name
       });
       
+      let errorMessage = "Authentication failed. Please try again.";
+      
+      if (error.message === "Failed to fetch") {
+        errorMessage = "Cannot connect to server. Please check your internet connection and make sure the backend server is running.";
+      } else if (error.message.includes("Invalid email or password")) {
+        errorMessage = "Invalid email or password. Please check your credentials.";
+      } else if (error.message.includes("timeout")) {
+        errorMessage = "Request timed out. Please check your connection and try again.";
+      }
+      
       Alert.alert(
-        "Authentication Error",
-        error.message || "Authentication failed. Please check your credentials and try again."
+        "Login Failed",
+        errorMessage + "\n\nTip: Try using 'testlogin@example.com' with password 'password123' for testing."
       );
     } finally {
       console.log("🏁 Authentication process completed");

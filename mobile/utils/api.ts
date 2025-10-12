@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://172.28.31.179:5001' // Development - use actual IP for mobile simulator
+    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator
     : 'https://your-production-api.com'; // Production
 
 export const API_ENDPOINTS = {
@@ -62,10 +62,17 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
             (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
 
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const response = await fetch(url, {
             headers,
+            signal: controller.signal,
             ...options,
         });
+
+        clearTimeout(timeoutId);
 
         const duration = Date.now() - startTime;
         console.log(`📡 API Response: ${response.status} ${response.statusText} (${duration}ms)`);

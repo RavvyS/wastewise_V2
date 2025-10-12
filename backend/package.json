@@ -22,7 +22,8 @@
     "dotenv": "^16.5.0",
     "drizzle-orm": "^0.44.2",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "node-fetch": "^3.3.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

@@ -16,14 +16,15 @@ import {
   wasteLogsTable,
 } from "./db/schema.js";
 import { eq } from "drizzle-orm";
+import geminiRouter from './routes/gemini.js';
 
 const app = express();
 const PORT = ENV.PORT || 8001;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' })); // Increase limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -800,6 +801,9 @@ app.delete("/api/logs/:id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+/* ========== GEMINI AI ROUTES ========== */
+app.use('/api/gemini', geminiRouter);
 
 /* ========== START SERVER ========== */
 

@@ -8,10 +8,14 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  Dimensions,
 } from "react-native";
+
+const { width } = Dimensions.get('window');
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { apiGet, API_ENDPOINTS } from "../../utils/api";
+import FAB from "../../components/FAB";
 
 export default function HomeScreen() {
   const [testing, setTesting] = useState(false);
@@ -240,6 +244,9 @@ export default function HomeScreen() {
           </View>
         </View>
       </ScrollView>
+      
+      {/* Floating Action Button */}
+      <FAB />
     </SafeAreaView>
   );
 }
