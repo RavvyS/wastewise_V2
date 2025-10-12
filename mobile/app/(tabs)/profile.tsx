@@ -302,7 +302,7 @@ export default function ProfileScreen() {
 
   const handleShareApp = () => {
     Alert.alert(
-      "Share EcoSeparate",
+      "Share ECOZEN",
       "Help your friends join the eco-friendly movement!",
       [
         {
@@ -315,7 +315,7 @@ export default function ProfileScreen() {
             // In a real app, you would use React Native Share API
             Alert.alert(
               "Share App",
-              "Share link: https://ecoseparate.app\n\nJoin me on EcoSeparate - the best way to track your recycling and help the environment! 🌱"
+              "Share link: https://ecozen.app\n\nJoin me on ECOZEN - the best way to track your recycling and help the environment! 🌱"
             );
           },
         },
