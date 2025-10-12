@@ -84,12 +84,12 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
 
   const ecoZenTranslateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -100],
+    outputRange: [0, -80],
   });
 
   const cameraTranslateY = animation.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, -200],
+    outputRange: [0, -140],
   });
 
   return (
@@ -175,7 +175,7 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: width < 400 ? 120 : 140, // Moved up significantly to clear tab bar
+    bottom: width < 400 ? 80 : 100, // Adjust for smaller screens
     right: width < 400 ? 16 : 20,
     alignItems: "center",
   },
