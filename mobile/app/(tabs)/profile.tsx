@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Text,
   View,
@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { logout, getCurrentUser } from "../../utils/api";
+import { logout } from "../../utils/api";
 
 interface UserProfile {
   name: string;
@@ -42,12 +42,11 @@ export default function ProfileScreen() {
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [achievementsModalVisible, setAchievementsModalVisible] =
     useState(false);
-  const [loading, setLoading] = useState(true);
 
   // User profile state
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    name: "Loading...",
-    email: "loading@example.com",
+    name: "John Doe",
+    email: "john.doe@example.com",
     phone: "+1 234-567-8900",
     location: "New York, NY",
     joinDate: "January 2024",
@@ -56,38 +55,6 @@ export default function ProfileScreen() {
     level: 5,
     points: 1250,
   });
-
-  // Fetch current user data
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        console.log("👤 Fetching current user data...");
-        const userData = await getCurrentUser();
-        console.log("✅ User data received:", userData);
-        
-        // Update profile with actual user data
-        setUserProfile(prev => ({
-          ...prev,
-          name: userData.name || "Unknown User",
-          email: userData.email || "no-email@example.com",
-          phone: userData.phone || prev.phone,
-          // Keep other fields as default for now since they might not be in the API
-        }));
-      } catch (error) {
-        console.error("❌ Failed to fetch user data:", error);
-        // Keep default values on error
-        setUserProfile(prev => ({
-          ...prev,
-          name: "Guest User",
-          email: "guest@example.com",
-        }));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserData();
-  }, []);
 
   // Settings state
   const [settings, setSettings] = useState<Setting[]>([
@@ -134,16 +101,6 @@ export default function ProfileScreen() {
     phone: userProfile.phone,
     location: userProfile.location,
   });
-
-  // Update form when userProfile changes
-  useEffect(() => {
-    setEditForm({
-      name: userProfile.name,
-      email: userProfile.email,
-      phone: userProfile.phone,
-      location: userProfile.location,
-    });
-  }, [userProfile]);
 
   const achievements = [
     {
@@ -354,7 +311,7 @@ export default function ProfileScreen() {
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {loading ? "..." : userProfile.name
+                {userProfile.name
                   .split(" ")
                   .map((n) => n[0])
                   .join("")}
