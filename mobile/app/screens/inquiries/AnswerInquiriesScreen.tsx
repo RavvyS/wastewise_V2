@@ -261,7 +261,7 @@ export default function AnswerInquiriesScreen() {
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Answer Inquiries</Text>
           <Text style={styles.headerSubtitle}>
-            {inquiries.filter(i => i.status === 'sent').length} pending, {inquiries.filter(i => i.status === 'answered').length} answered
+            All user inquiries: {inquiries.filter(i => i.status === 'sent').length} pending, {inquiries.filter(i => i.status === 'answered').length} answered
           </Text>
         </View>
         <View style={styles.headerBadge}>

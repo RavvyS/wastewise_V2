@@ -752,9 +752,8 @@ app.delete("/api/centers/:id", async (req, res) => {
 });
 
 /* ========== INQUIRIES ========== */
-// TODO: Add authenticateToken middleware when auth is implemented
-// Create inquiry (draft)
-app.post("/api/inquiries", async (req, res) => {
+// Create inquiry (draft) - User only
+app.post("/api/inquiries", authenticateToken, async (req, res) => {
   try {
     const { title, question, category } = req.body;
     
@@ -763,7 +762,7 @@ app.post("/api/inquiries", async (req, res) => {
     }
 
     const inquiry = await db.insert(inquiriesTable).values({
-      userId: 1, // TODO: Use req.user.id when auth is implemented
+      userId: req.user.id,
       title,
       question,
       category: category || null,
@@ -777,12 +776,12 @@ app.post("/api/inquiries", async (req, res) => {
   }
 });
 
-// Get all inquiries for user (draft and sent)
-app.get("/api/inquiries", async (req, res) => {
+// Get all inquiries for current user (draft and sent) - User only
+app.get("/api/inquiries", authenticateToken, async (req, res) => {
   try {
-    // TODO: Filter by userId when auth is implemented
-    // const inquiries = await db.select().from(inquiriesTable).where(eq(inquiriesTable.userId, req.user.id));
-    const inquiries = await db.select().from(inquiriesTable);
+    // Return only user's own inquiries
+    const inquiries = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.userId, req.user.id));
     res.json(inquiries);
   } catch (error) {
     console.error("Get inquiries error:", error);
@@ -790,13 +789,23 @@ app.get("/api/inquiries", async (req, res) => {
   }
 });
 
-// Get sent inquiries (sent + answered) for answering
-app.get("/api/inquiries/sent", async (req, res) => {
+// Get sent inquiries (sent + answered)
+// Users: see their own sent inquiries
+// Admins: see ALL sent inquiries from all users
+app.get("/api/inquiries/sent", authenticateToken, async (req, res) => {
   try {
-    // TODO: Filter by userId when auth is implemented
-    const inquiries = await db.select().from(inquiriesTable);
+    let inquiries;
     
-    // Filter sent and answered on backend
+    // If admin, return all sent/answered inquiries
+    if (req.user.role === 'admin') {
+      inquiries = await db.select().from(inquiriesTable);
+    } else {
+      // If regular user, return only their own sent/answered inquiries
+      inquiries = await db.select().from(inquiriesTable)
+        .where(eq(inquiriesTable.userId, req.user.id));
+    }
+    
+    // Filter to only sent and answered status
     const sentInquiries = inquiries.filter(i => i.status === 'sent' || i.status === 'answered');
     res.json(sentInquiries);
   } catch (error) {
@@ -805,8 +814,8 @@ app.get("/api/inquiries/sent", async (req, res) => {
   }
 });
 
-// Update inquiry (only if draft)
-app.put("/api/inquiries/:id", async (req, res) => {
+// Update inquiry (only if draft) - User only
+app.put("/api/inquiries/:id", authenticateToken, async (req, res) => {
   try {
     const { title, question, category } = req.body;
     const inquiryId = Number(req.params.id);
@@ -819,10 +828,10 @@ app.put("/api/inquiries/:id", async (req, res) => {
       return res.status(404).json({ error: "Inquiry not found" });
     }
 
-    // TODO: Check userId when auth is implemented
-    // if (existing[0].userId !== req.user.id) {
-    //   return res.status(403).json({ error: "Unauthorized" });
-    // }
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only edit your own inquiries" });
+    }
 
     if (existing[0].status !== 'draft') {
       return res.status(400).json({ error: "Cannot edit inquiry that has been sent" });
@@ -841,8 +850,8 @@ app.put("/api/inquiries/:id", async (req, res) => {
   }
 });
 
-// Send inquiry (change status from draft to sent)
-app.post("/api/inquiries/:id/send", async (req, res) => {
+// Send inquiry (change status from draft to sent) - User only
+app.post("/api/inquiries/:id/send", authenticateToken, async (req, res) => {
   try {
     const inquiryId = Number(req.params.id);
 
@@ -854,10 +863,10 @@ app.post("/api/inquiries/:id/send", async (req, res) => {
       return res.status(404).json({ error: "Inquiry not found" });
     }
 
-    // TODO: Check userId when auth is implemented
-    // if (existing[0].userId !== req.user.id) {
-    //   return res.status(403).json({ error: "Unauthorized" });
-    // }
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only send your own inquiries" });
+    }
 
     if (existing[0].status !== 'draft') {
       return res.status(400).json({ error: "Inquiry has already been sent" });
@@ -876,11 +885,16 @@ app.post("/api/inquiries/:id/send", async (req, res) => {
   }
 });
 
-// Answer inquiry (change status from sent to answered)
-app.post("/api/inquiries/:id/answer", async (req, res) => {
+// Answer inquiry (change status from sent to answered) - Admin only
+app.post("/api/inquiries/:id/answer", authenticateToken, async (req, res) => {
   try {
     const { response } = req.body;
     const inquiryId = Number(req.params.id);
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Unauthorized: Only admins can answer inquiries" });
+    }
 
     if (!response) {
       return res.status(400).json({ error: "Response is required" });
@@ -893,11 +907,6 @@ app.post("/api/inquiries/:id/answer", async (req, res) => {
     if (existing.length === 0) {
       return res.status(404).json({ error: "Inquiry not found" });
     }
-
-    // TODO: Check userId when auth is implemented
-    // if (existing[0].userId !== req.user.id) {
-    //   return res.status(403).json({ error: "Unauthorized" });
-    // }
 
     if (existing[0].status !== 'sent') {
       return res.status(400).json({ error: "Can only answer sent inquiries" });
@@ -920,8 +929,8 @@ app.post("/api/inquiries/:id/answer", async (req, res) => {
   }
 });
 
-// Delete inquiry (only if draft)
-app.delete("/api/inquiries/:id", async (req, res) => {
+// Delete inquiry (only if draft) - User only
+app.delete("/api/inquiries/:id", authenticateToken, async (req, res) => {
   try {
     const inquiryId = Number(req.params.id);
 
@@ -933,10 +942,10 @@ app.delete("/api/inquiries/:id", async (req, res) => {
       return res.status(404).json({ error: "Inquiry not found" });
     }
 
-    // TODO: Check userId when auth is implemented
-    // if (existing[0].userId !== req.user.id) {
-    //   return res.status(403).json({ error: "Unauthorized" });
-    // }
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only delete your own inquiries" });
+    }
 
     if (existing[0].status !== 'draft') {
       return res.status(400).json({ error: "Cannot delete inquiry that has been sent" });
