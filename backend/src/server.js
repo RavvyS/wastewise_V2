@@ -16,14 +16,15 @@ import {
   wasteLogsTable,
 } from "./db/schema.js";
 import { eq } from "drizzle-orm";
+import geminiRouter from "./routes/gemini.js";
 
 const app = express();
 const PORT = ENV.PORT || 8001;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "50mb" })); // Increase limit for image uploads
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Authentication middleware
 const authenticateToken = (req, res, next) => {
@@ -261,11 +262,11 @@ const authenticateAdmin = (req, res, next) => {
     if (err) {
       return res.status(403).json({ error: "Invalid or expired token" });
     }
-    
+
     if (user.role !== "admin" && user.role !== "manager") {
       return res.status(403).json({ error: "Admin access required" });
     }
-    
+
     req.user = user;
     next();
   });
@@ -339,15 +340,17 @@ app.post("/api/auth/admin-signup", authenticateAdmin, async (req, res) => {
 // Get all users (admin only)
 app.get("/api/auth/users", authenticateAdmin, async (req, res) => {
   try {
-    const users = await db.select({
-      id: usersTable.id,
-      name: usersTable.name,
-      email: usersTable.email,
-      phone: usersTable.phone,
-      role: usersTable.role,
-      isActive: usersTable.isActive,
-      createdAt: usersTable.createdAt,
-    }).from(usersTable);
+    const users = await db
+      .select({
+        id: usersTable.id,
+        name: usersTable.name,
+        email: usersTable.email,
+        phone: usersTable.phone,
+        role: usersTable.role,
+        isActive: usersTable.isActive,
+        createdAt: usersTable.createdAt,
+      })
+      .from(usersTable);
 
     res.json(users);
   } catch (error) {
@@ -1066,6 +1069,9 @@ app.delete("/api/logs/:id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+/* ========== GEMINI AI ROUTES ========== */
+app.use("/api/gemini", geminiRouter);
 
 /* ========== START SERVER ========== */
 

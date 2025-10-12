@@ -59,6 +59,7 @@ export default function WasteLogScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingLog, setEditingLog] = useState<WasteLog | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Form state
   const [selectedCategory, setSelectedCategory] =
@@ -134,7 +135,11 @@ export default function WasteLogScreen() {
   };
 
   const saveLog = async () => {
+    if (saving) return; // Prevent multiple saves
+
     try {
+      setSaving(true);
+
       if (!customDescription.trim()) {
         Alert.alert("Error", "Please enter a description");
         return;
@@ -159,10 +164,22 @@ export default function WasteLogScreen() {
 
       setModalVisible(false);
       resetForm();
-      await loadData(); // Refresh data
+
+      // Try to refresh data after successful save
+      try {
+        await loadData();
+      } catch (refreshError) {
+        console.error("Refresh failed after save:", refreshError);
+        Alert.alert(
+          "Warning",
+          "Log saved successfully, but failed to refresh the list. Please pull down to refresh manually."
+        );
+      }
     } catch (error) {
       Alert.alert("Error", "Failed to save log. Please try again.");
       console.error("Save log error:", error);
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -474,9 +491,13 @@ export default function WasteLogScreen() {
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveButton} onPress={saveLog}>
+              <TouchableOpacity
+                style={[styles.saveButton, saving && styles.disabledButton]}
+                onPress={saveLog}
+                disabled={saving}
+              >
                 <Text style={styles.saveButtonText}>
-                  {editingLog ? "Update" : "Save"}
+                  {saving ? "Saving..." : (editingLog ? "Update" : "Save")}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -843,5 +864,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "white",
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
 });

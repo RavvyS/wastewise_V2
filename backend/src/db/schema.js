@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, index } from "drizzle-orm/pg-core";
 
 /* ========== USERS ========== */
 export const usersTable = pgTable("users", {
@@ -24,7 +24,9 @@ export const wasteItemsTable = pgTable("waste_items", {
   categoryId: integer("category_id").notNull().references(() => wasteCategoriesTable.id),
   name: text("name").notNull(),
   disposalInstructions: text("disposal_instructions"),
-});
+}, (table) => ({
+  categoryIdIdx: index("waste_items_category_id_idx").on(table.categoryId),
+}));
 
 /* ========== LEARNING HUB (QUIZZES & ARTICLES) ========== */
 export const quizzesTable = pgTable("quizzes", {
@@ -86,4 +88,7 @@ export const wasteLogsTable = pgTable("waste_logs", {
   description: text("description"), // e.g. "Recycled 2 bottles"
   quantity: integer("quantity"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => ({
+  userIdIdx: index("waste_logs_user_id_idx").on(table.userId),
+  createdAtIdx: index("waste_logs_created_at_idx").on(table.createdAt),
+}));
