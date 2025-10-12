@@ -21,11 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-<<<<<<< HEAD
-      "package": "com.anonymous.mobile"
-=======
       "package": "com.ecozen.ai"
->>>>>>> origin/main
     },
     "web": {
       "output": "static",
