@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  Text,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -124,7 +123,6 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
         >
           <Ionicons name="chatbubble-ellipses" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.subFABLabel}>Ask EcoZen</Text>
       </Animated.View>
 
       {/* Camera Detection Button */}
@@ -148,7 +146,6 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
         >
           <Ionicons name="camera" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.subFABLabel}>Detect Symbol</Text>
       </Animated.View>
 
       {/* Main FAB Button */}
@@ -236,24 +233,5 @@ const styles = StyleSheet.create({
   },
   cameraButton: {
     backgroundColor: Colors.accent,
-  },
-  subFABLabel: {
-    marginTop: 8,
-    fontSize: width < 400 ? 11 : 12, // Responsive font size
-    color: "#333",
-    fontWeight: "600",
-    textAlign: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.95)", // Better contrast
-    paddingHorizontal: width < 400 ? 6 : 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    // Better readability
-    lineHeight: width < 400 ? 14 : 16,
-    maxWidth: 80, // Prevent too wide labels
   },
 });
