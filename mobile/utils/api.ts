@@ -1,7 +1,7 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://172.28.31.179:5001' // Development - use actual IP for mobile simulator
-    : 'https://your-production-api.com'; // Production
+    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator  
+    : 'https://backend-two-zeta-41.vercel.app'; // Production - Vercel (Working URL)
 
 export const API_ENDPOINTS = {
     // Authentication
@@ -9,7 +9,7 @@ export const API_ENDPOINTS = {
     LOGIN: '/api/auth/login',
     ME: '/api/auth/me',
     CHANGE_PASSWORD: '/api/auth/change-password',
-    
+
     // Admin Authentication
     ADMIN_SIGNUP: '/api/auth/admin-signup',
     ADMIN_USERS: '/api/auth/users',
@@ -62,10 +62,17 @@ export const apiRequest = async (endpoint: string, options: RequestInit = {}) =>
             (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
         }
 
+        // Add timeout to prevent hanging requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
         const response = await fetch(url, {
             headers,
+            signal: controller.signal,
             ...options,
         });
+
+        clearTimeout(timeoutId);
 
         const duration = Date.now() - startTime;
         console.log(`📡 API Response: ${response.status} ${response.statusText} (${duration}ms)`);
@@ -125,7 +132,7 @@ export const login = async (credentials: {
     try {
         const response = await apiPost(API_ENDPOINTS.LOGIN, credentials);
         console.log("📥 Login response received:", response);
-        
+
         if (response.token) {
             console.log("✅ Token received, setting auth token");
             setAuthToken(response.token);
@@ -133,7 +140,7 @@ export const login = async (credentials: {
         } else {
             console.log("❌ No token in response");
         }
-        
+
         return response;
     } catch (error) {
         console.error("❌ Login error:", error);
@@ -144,10 +151,10 @@ export const login = async (credentials: {
 export const logout = () => {
     console.log("🚪 Logging out user...");
     console.log("🔍 Current auth token before logout:", authToken ? "EXISTS" : "NULL");
-    
+
     // Clear the auth token
     removeAuthToken();
-    
+
     console.log("🔍 Auth token after removal:", authToken ? "STILL EXISTS" : "NULL");
     console.log("✅ Logout process completed");
 };
