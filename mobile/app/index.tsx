@@ -1,300 +1,517 @@
-// app/index.tsx - Eco-Themed UI
 import React, { useEffect, useState, useCallback } from "react";
 import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
-  ActivityIndicator, 
-  StyleSheet,
+    View, 
+    Text, 
+    ScrollView, 
+    TouchableOpacity, 
+    ActivityIndicator, 
+    StyleSheet,
+    ViewStyle,
+    TextStyle
 } from "react-native"; 
 import * as Speech from "expo-speech";
 import { Link, useRouter, useFocusEffect } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { getArticles, getQuizzes, Article, Quiz } from '../services/sqliteService';
+import { calculateSpeechTime } from '../utils/readingTime'; 
 
-const ListItem = ({ item, type }: { item: Article | Quiz, type: 'article' | 'quiz' }) => {
-  const isArticle = type === 'article';
-  const detailPath = isArticle ? '/ArticleDetail' as '/ArticleDetail' : '/QuizDetail' as '/QuizDetail';
-  
-  const detailParams = { 
-    itemId: item.id,
-    itemTitle: item.title,
-  };
+// Define styles for clarity and type safety
+interface IndexStyles {
+    container: ViewStyle;
+    header: ViewStyle;
+    headerTitle: TextStyle;
+    aiChatButton: ViewStyle; // <-- NEW STYLE
+    scrollContent: ViewStyle;
+    loadingContainer: ViewStyle;
+    loadingText: TextStyle;
+    pageHeader: ViewStyle;
+    pageTitle: TextStyle;
+    pageSubtitle: TextStyle;
+    tabContainer: ViewStyle;
+    tab: ViewStyle;
+    activeTab: ViewStyle;
+    tabText: TextStyle;
+    activeTabText: TextStyle;
+    contentContainer: ViewStyle;
+    sectionHeader: ViewStyle;
+    addButton: ViewStyle;
+    addButtonText: TextStyle;
+    articleCard: ViewStyle;
+    articleIconContainer: ViewStyle;
+    articleContent: ViewStyle;
+    articleTitle: TextStyle;
+    articleDescription: TextStyle;
+    articleMeta: ViewStyle;
+    categoryBadge: ViewStyle;
+    categoryText: TextStyle;
+    levelBadge: ViewStyle;
+    levelText: TextStyle;
+    intermediateLevelBadge: ViewStyle;
+    intermediateLevelText: TextStyle;
+    advancedLevelBadge: ViewStyle;
+    advancedLevelText: TextStyle;
+    readTime: TextStyle;
+    editIconButton: ViewStyle;
+    emptyText: TextStyle;
+    footerSpacer: ViewStyle;
+}
 
-  const handleListen = () => {
-    Speech.speak(item.title);
-  };
+const getLevelStyles = (level: string) => {
+    switch (level) {
+        case 'Intermediate':
+            return { 
+                badgeStyle: styles.intermediateLevelBadge, 
+                textStyle: styles.intermediateLevelText 
+            };
+        case 'Advanced':
+            return { 
+                badgeStyle: styles.advancedLevelBadge, 
+                textStyle: styles.advancedLevelText 
+            };
+        case 'Beginner':
+        default:
+            return { 
+                badgeStyle: styles.levelBadge, 
+                textStyle: styles.levelText 
+            };
+    }
+};
 
-  return (
-    <View style={styles.itemCard}>
-      <Link 
-        href={{ pathname: detailPath, params: detailParams as any }}
-        asChild 
-      >
-        <TouchableOpacity style={styles.itemContent}>
-          <View style={styles.itemIcon}>
-            <Ionicons 
-              name={isArticle ? "newspaper" : "bulb"} 
-              size={24} 
-              color="#2E7D32" 
-            />
-          </View>
-          <Text style={styles.itemTitle}>{item.title}</Text>
-        </TouchableOpacity>
-      </Link>
-      
-      <View style={styles.actionButtons}>
-        <TouchableOpacity 
-          style={styles.listenButton} 
-          onPress={handleListen}
-        >
-          <Ionicons name="volume-medium" size={20} color="#fff" />
-        </TouchableOpacity>
-        
+const ArticleCard = ({ item }: { item: Article }) => {
+    const detailParams = { 
+        itemId: item.id,
+        itemTitle: item.title,
+    };
+
+    const levelStyles = getLevelStyles(item.level);
+
+    const readMinutes = calculateSpeechTime(item.content, 150);
+
+    return (
         <Link 
-          href={{
-            pathname: "/edit/[id]",
-            params: { id: item.id, type: type }
-          } as any}
-          asChild
+            href={{ pathname: '/ArticleDetail', params: detailParams as any }}
+            asChild 
         >
-          <TouchableOpacity style={styles.editButton}>
-            <Ionicons name="create-outline" size={20} color="#fff" />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.articleCard}>
+                <View style={styles.articleIconContainer}>
+                    <Ionicons name="newspaper" size={32} color="#67A859" />
+                </View>
+                
+                <View style={styles.articleContent}>
+                    <Text style={styles.articleTitle} numberOfLines={2}>{item.title}</Text>
+                    <Text style={styles.articleDescription} numberOfLines={2}>
+                        {(item as Article).content?.substring(0, 80) || 'Read this article...'}...
+                    </Text>
+                    
+                    <View style={styles.articleMeta}>
+                        <View style={styles.categoryBadge}>
+                            <Text style={styles.categoryText}>{item.category || 'N/A'}</Text>
+                        </View>
+                        
+                        <View style={[styles.levelBadge, levelStyles.badgeStyle]}>
+                            <Text style={[styles.levelText, levelStyles.textStyle]}>
+                                {item.level || 'N/A'}
+                            </Text>
+                        </View>
+                        
+                        <Text style={styles.readTime}>
+                            {readMinutes} min read
+                        </Text>
+                    </View>
+                </View>
+                
+                <Link 
+                    href={{
+                        pathname: "/edit/[id]",
+                        params: { id: item.id, type: 'article' }
+                    } as any}
+                    asChild
+                >
+                    <TouchableOpacity style={styles.editIconButton}>
+                        <Ionicons name="create-outline" size={20} color="#757575" />
+                    </TouchableOpacity>
+                </Link>
+            </TouchableOpacity>
         </Link>
-      </View>
-    </View>
-  );
+    );
+};
+
+const QuizCard = ({ item }: { item: Quiz }) => {
+    const detailParams = { 
+        itemId: item.id,
+        itemTitle: item.title,
+    };
+
+    return (
+        <Link 
+            href={{ pathname: '/QuizDetail', params: detailParams as any }}
+            asChild 
+        >
+            <TouchableOpacity style={styles.articleCard}>
+                <View style={styles.articleIconContainer}>
+                    <Ionicons name="help-circle" size={32} color="#67A859" />
+                </View>
+                
+                <View style={styles.articleContent}>
+                    <Text style={styles.articleTitle} numberOfLines={2}>{item.title}</Text>
+                    <Text style={styles.articleDescription} numberOfLines={2}>
+                        Test your knowledge with this quiz
+                    </Text>
+                </View>
+                
+                <Link 
+                    href={{
+                        pathname: "/edit/[id]",
+                        params: { id: item.id, type: 'quiz' }
+                    } as any}
+                    asChild
+                >
+                    <TouchableOpacity style={styles.editIconButton}>
+                        <Ionicons name="create-outline" size={20} color="#757575" />
+                    </TouchableOpacity>
+                </Link>
+            </TouchableOpacity>
+        </Link>
+    );
 };
 
 export default function Index() {
-  const router = useRouter(); 
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
+    const router = useRouter(); 
+    const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+    const [articles, setArticles] = useState<Article[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'articles' | 'quizzes'>('articles');
 
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      const articlesData = await getArticles();
-      setArticles(articlesData);
-      const quizzesData = await getQuizzes();
-      setQuizzes(quizzesData);
-    } catch (error) {
-      console.error("Failed to fetch content from DB:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const articlesData = await getArticles();
+            setArticles(articlesData);
+            const quizzesData = await getQuizzes();
+            setQuizzes(quizzesData);
+        } catch (error) {
+            console.error("Failed to fetch content from DB:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchData();
-    }, [])
-  );
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-        <Text style={styles.loadingText}>Loading WasteWise Hub...</Text>
-      </View>
+    useFocusEffect(
+        useCallback(() => {
+            fetchData();
+        }, [])
     );
-  }
 
-  return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerIcon}>
-          <Ionicons name="leaf" size={32} color="#2E7D32" />
-        </View>
-        <Text style={styles.headerTitle}>WasteWise Hub</Text>
-        <Text style={styles.headerSubtitle}>Learn • Reduce • Recycle</Text>
-      </View>
-      
-      {/* ARTICLES SECTION */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons name="newspaper-outline" size={24} color="#2E7D32" />
-            <Text style={styles.sectionTitle}>Articles</Text>
-          </View>
-          <Link href="/create?type=article" asChild>
-            <TouchableOpacity style={styles.addButton}>
-              <Ionicons name="add-circle" size={28} color="#43A047" />
-            </TouchableOpacity>
-          </Link>
-        </View>
-        
-        {articles.length === 0 ? (
-          <Text style={styles.emptyText}>No articles yet. Create one!</Text>
-        ) : (
-          articles.map((a) => <ListItem key={a.id} item={a} type="article" />)
-        )}
-      </View>
+    if (loading) {
+        return (
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <Text style={styles.headerTitle}>Learning</Text>
+                </View>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#67A859" />
+                    <Text style={styles.loadingText}>Loading EcoZen Hub...</Text>
+                </View>
+            </View>
+        );
+    }
 
-      {/* QUIZZES SECTION */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionTitleContainer}>
-            <Ionicons name="bulb-outline" size={24} color="#2E7D32" />
-            <Text style={styles.sectionTitle}>Quizzes</Text>
-          </View>
-          <Link href="/create?type=quiz" asChild>
-            <TouchableOpacity style={styles.addButton}>
-              <Ionicons name="add-circle" size={28} color="#43A047" />
-            </TouchableOpacity>
-          </Link>
+    return (
+        <View style={styles.container}>
+            {/* Header: Now uses 'space-between' to align title and button */}
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Learning</Text>
+                
+                {/* === NEW AI CHAT BUTTON === */}
+                <Link href="/AIChat" asChild>
+                    <TouchableOpacity style={styles.aiChatButton}>
+                        <Ionicons name="chatbubble-ellipses-outline" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                </Link>
+                {/* ========================== */}
+            </View>
+
+            <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                {/* Page Header */}
+                <View style={styles.pageHeader}>
+                    <Text style={styles.pageTitle}>Learning Hub</Text>
+                    <Text style={styles.pageSubtitle}>Expand your knowledge</Text>
+                </View>
+
+                {/* Tabs */}
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity 
+                        style={[styles.tab, activeTab === 'articles' && styles.activeTab]}
+                        onPress={() => setActiveTab('articles')}
+                    >
+                        <Ionicons 
+                            name="book" 
+                            size={20} 
+                            color={activeTab === 'articles' ? '#67A859' : '#757575'} 
+                        />
+                        <Text style={[styles.tabText, activeTab === 'articles' && styles.activeTabText]}>
+                            Articles
+                        </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                        style={[styles.tab, activeTab === 'quizzes' && styles.activeTab]}
+                        onPress={() => setActiveTab('quizzes')}
+                    >
+                        <Ionicons 
+                            name="help-circle" 
+                            size={20} 
+                            color={activeTab === 'quizzes' ? '#67A859' : '#757575'} 
+                        />
+                        <Text style={[styles.tabText, activeTab === 'quizzes' && styles.activeTabText]}>
+                            Quizzes
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Content */}
+                <View style={styles.contentContainer}>
+                    {activeTab === 'articles' ? (
+                        <>
+                            <View style={styles.sectionHeader}>
+                                <Link href={{ pathname: '/create', params: { type: 'article' } }} asChild>
+                                    <TouchableOpacity style={styles.addButton}>
+                                        <Ionicons name="add" size={20} color="#fff" />
+                                        <Text style={styles.addButtonText}>Add Article</Text>
+                                    </TouchableOpacity>
+                                </Link>
+                            </View>
+                            
+                            {articles.length === 0 ? (
+                                <Text style={styles.emptyText}>No articles yet. Create one!</Text>
+                            ) : (
+                                articles.map((a) => <ArticleCard key={a.id} item={a} />)
+                            )}
+                        </>
+                    ) : (
+                        <>
+                            <View style={styles.sectionHeader}>
+                                <Link href={{ pathname: '/create', params: { type: 'quiz' } }} asChild>
+                                    <TouchableOpacity style={styles.addButton}>
+                                        <Ionicons name="add" size={20} color="#fff" />
+                                        <Text style={styles.addButtonText}>Add Quiz</Text>
+                                    </TouchableOpacity>
+                                </Link>
+                            </View>
+                            
+                            {quizzes.length === 0 ? (
+                                <Text style={styles.emptyText}>No quizzes yet. Create one!</Text>
+                            ) : (
+                                quizzes.map((q) => <QuizCard key={q.id} item={q} />)
+                            )}
+                        </>
+                    )}
+                </View>
+
+                <View style={styles.footerSpacer} />
+            </ScrollView>
         </View>
-        
-        {quizzes.length === 0 ? (
-          <Text style={styles.emptyText}>No quizzes yet. Create one!</Text>
-        ) : (
-          quizzes.map((q) => <ListItem key={q.id} item={q} type="quiz" />)
-        )}
-      </View>
-      
-      <View style={styles.footer}>
-        <Ionicons name="earth" size={20} color="#66BB6A" />
-        <Text style={styles.footerText}>Together for a greener planet 🌍</Text>
-      </View>
-    </ScrollView>
-  );
+    );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F1F8E9',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F1F8E9',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#2E7D32',
-    fontWeight: '500',
-  },
-  header: {
-    backgroundColor: '#C5E1A5',
-    paddingVertical: 30,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 20,
-  },
-  headerIcon: {
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 50,
-    marginBottom: 10,
-  },
-  headerTitle: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1B5E20',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#388E3C',
-    fontStyle: 'italic',
-  },
-  section: {
-    marginBottom: 24,
-    paddingHorizontal: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#1B5E20',
-    marginLeft: 8,
-  },
-  addButton: {
-    padding: 4,
-  },
-  itemCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderLeftWidth: 4,
-    borderLeftColor: '#66BB6A',
-  },
-  itemContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  itemIcon: {
-    backgroundColor: '#E8F5E9',
-    padding: 10,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  itemTitle: {
-    fontSize: 16,
-    color: '#2E7D32',
-    fontWeight: '600',
-    flex: 1,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    marginLeft: 8,
-  },
-  listenButton: {
-    backgroundColor: '#66BB6A',
-    padding: 8,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  editButton: {
-    backgroundColor: '#43A047',
-    padding: 8,
-    borderRadius: 8,
-  },
-  emptyText: {
-    textAlign: 'center',
-    color: '#81C784',
-    fontSize: 14,
-    fontStyle: 'italic',
-    marginVertical: 20,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 24,
-    marginTop: 20,
-  },
-  footerText: {
-    marginLeft: 8,
-    color: '#388E3C',
-    fontSize: 14,
-    fontWeight: '500',
-  },
+const styles = StyleSheet.create<IndexStyles>({
+    container: {
+        flex: 1,
+        backgroundColor: '#F5F5F5',
+    },
+    header: {
+        backgroundColor: '#67A859',
+        paddingTop: 50,
+        paddingBottom: 16,
+        paddingHorizontal: 20,
+        flexDirection: 'row', // Added
+        alignItems: 'center',
+        justifyContent: 'space-between', // Added
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+    },
+    // === NEW STYLE ===
+    aiChatButton: {
+        padding: 8,
+    },
+    // =================
+
+    scrollContent: {
+        flex: 1,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loadingText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: '#67A859',
+        fontWeight: '500',
+    },
+    pageHeader: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
+        paddingBottom: 20,
+    },
+    pageTitle: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#2C2C2C',
+        marginBottom: 8,
+    },
+    pageSubtitle: {
+        fontSize: 16,
+        color: '#757575',
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        paddingHorizontal: 20,
+        marginBottom: 20,
+        gap: 12,
+    },
+    tab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        backgroundColor: '#FFFFFF',
+        gap: 8,
+    },
+    activeTab: {
+        backgroundColor: '#E8F5E9',
+    },
+    tabText: {
+        fontSize: 16,
+        fontWeight: '500',
+        color: '#757575',
+    },
+    activeTabText: {
+        color: '#67A859',
+        fontWeight: '600',
+    },
+    contentContainer: {
+        paddingHorizontal: 20,
+    },
+    sectionHeader: {
+        marginBottom: 16,
+        alignItems: 'flex-end',
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#67A859',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        gap: 6,
+    },
+    addButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    articleCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+        flexDirection: 'row',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+    },
+    articleIconContainer: {
+        width: 64,
+        height: 64,
+        borderRadius: 12,
+        backgroundColor: '#F5F5F5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 16,
+    },
+    articleContent: {
+        flex: 1,
+    },
+    articleTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#2C2C2C',
+        marginBottom: 8,
+    },
+    articleDescription: {
+        fontSize: 14,
+        color: '#757575',
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    articleMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    categoryBadge: {
+        backgroundColor: '#E3F2FD',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    categoryText: {
+        fontSize: 12,
+        color: '#1976D2',
+        fontWeight: '500',
+    },
+    
+    // === BEGINNER (DEFAULT/GREEN) STYLES ===
+    levelBadge: { 
+        backgroundColor: '#E8F5E9',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    levelText: {
+        fontSize: 12,
+        color: '#43A047',
+        fontWeight: '500',
+    },
+
+    // === INTERMEDIATE (YELLOW) STYLES ===
+    intermediateLevelBadge: {
+        backgroundColor: '#FFFDE7', 
+    },
+    intermediateLevelText: {
+        color: '#FFB300', 
+    },
+
+    // === ADVANCED (RED) STYLES ===
+    advancedLevelBadge: {
+        backgroundColor: '#FFEBEE', 
+    },
+    advancedLevelText: {
+        color: '#E53935', 
+    },
+    
+    readTime: {
+        fontSize: 12,
+        color: '#9E9E9E',
+    },
+    editIconButton: {
+        padding: 8,
+    },
+    emptyText: {
+        textAlign: 'center',
+        color: '#9E9E9E',
+        fontSize: 14,
+        marginVertical: 40,
+    },
+    footerSpacer: {
+        height: 40,
+    },
 });
