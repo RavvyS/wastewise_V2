@@ -4,6 +4,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 // Import the DatabaseProvider component
 import DatabaseProvider from './providers/DatabaseProvider'; 
+import NotificationHandler from "../components/NotificationHandler";
 
 export default function RootLayout() {
   return (
@@ -42,6 +43,18 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
       </DatabaseProvider>
+=======
+      <NotificationHandler />
+      <Stack
+        screenOptions={{
+          headerShown: false, // We'll handle headers in individual screens
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="auth" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
     </>
   );
 }

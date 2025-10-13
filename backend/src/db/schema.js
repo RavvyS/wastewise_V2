@@ -70,15 +70,29 @@ export const recyclingCentersTable = sqliteTable("recycling_centers", {
   timings: text("timings"),
   acceptedItems: text("accepted_items"), // JSON string
   isApproved: sqliteBoolean("is_approved"),
+  phone: text("phone"),
+  website: text("website"),
+  hours: text("hours"),
+  services: text("services"),
+  rating: integer("rating").default(0),
+  latitude: text("latitude"), 
+  longitude: text("longitude"), 
+  isApproved: boolean("is_approved").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const inquiriesTable = sqliteTable("inquiries", {
   id: sqliteSerial("id"),
   userId: integer("user_id").notNull().references(() => usersTable.id),
-  subject: text("subject").notNull(),
-  message: text("message").notNull(),
+  title: text("title").notNull(),
+  question: text("question").notNull(),
+  category: text("category"),
+  status: text("status").default("draft").notNull(), // draft, sent, answered
   response: text("response"),
   createdAt: sqliteTimestamp("created_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  sentAt: timestamp("sent_at"),
+  respondedAt: timestamp("responded_at"),
 });
 
 /* ========== USER WASTE LOGS ========== */

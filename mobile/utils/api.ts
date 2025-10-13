@@ -27,6 +27,17 @@ export const API_ENDPOINTS = {
 
     // Users
     USERS: '/api/users',
+
+    // Recycling Centers
+    CENTERS: '/api/centers',
+    CENTER_BY_ID: (centerId: number) => `/api/centers/${centerId}`,
+
+    // Inquiries
+    INQUIRIES: '/api/inquiries',
+    INQUIRIES_SENT: '/api/inquiries/sent',
+    INQUIRY_BY_ID: (inquiryId: number) => `/api/inquiries/${inquiryId}`,
+    SEND_INQUIRY: (inquiryId: number) => `/api/inquiries/${inquiryId}/send`,
+    ANSWER_INQUIRY: (inquiryId: number) => `/api/inquiries/${inquiryId}/answer`,
 };
 
 // Token Management (using simple in-memory storage for demo)

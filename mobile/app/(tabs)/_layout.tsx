@@ -28,7 +28,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
-          headerTitle: "EcoSeparate",
+          headerTitle: "ECOZEN",
         }}
       />
       <Tabs.Screen
@@ -41,9 +41,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="locations"
+        name="recycling-centers"
         options={{
-          title: "Locations",
+          title: "Centers",
+          headerTitle: "Recycling Centers",
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="location-outline" size={size} color={color} />
           ),

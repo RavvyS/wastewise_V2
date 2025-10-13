@@ -415,6 +415,361 @@ app.post("/api/articles", authenticateAdmin, async (req, res) => {
 });
 
 app.get("/api/articles", async (req, res) => {
+
+  const arts = await db.select().from(articlesTable);
+  res.json(arts);
+});
+
+app.put("/api/articles/:id", async (req, res) => {
+  const updated = await db
+    .update(articlesTable)
+    .set(req.body)
+    .where(eq(articlesTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/articles/:id", async (req, res) => {
+  await db
+    .delete(articlesTable)
+    .where(eq(articlesTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== RECYCLING CENTERS ========== */
+
+// Create recycling center
+app.post("/api/centers", async (req, res) => {
+  try {
+    const { name, address, phone, website, hours, services, rating, latitude, longitude } = req.body;
+    
+    // Validate required fields
+    if (!name || !address) {
+      return res.status(400).json({ error: "Name and address are required" });
+    }
+
+    const center = await db
+      .insert(recyclingCentersTable)
+      .values({
+        name,
+        address,
+        phone: phone || null,
+        website: website || null,
+        hours: hours || null,
+        services: services ? JSON.stringify(services) : null,
+        rating: rating || 0,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        isApproved: false,
+      })
+      .returning();
+    
+    // Parse services back to array for response
+    const result = {
+      ...center[0],
+      services: center[0].services ? JSON.parse(center[0].services) : []
+    };
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error creating recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all recycling centers
+app.get("/api/centers", async (req, res) => {
+  try {
+    const centers = await db.select().from(recyclingCentersTable);
+    
+    // Parse services JSON for each center
+    const centersWithParsedServices = centers.map(center => ({
+      ...center,
+      services: center.services ? JSON.parse(center.services) : []
+    }));
+    
+    res.json(centersWithParsedServices);
+  } catch (error) {
+    console.error("Error fetching recycling centers:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update recycling center
+app.put("/api/centers/:id", async (req, res) => {
+  try {
+    const { name, address, phone, website, hours, services, rating, latitude, longitude } = req.body;
+    const centerId = Number(req.params.id);
+
+    const updateData = {
+      ...(name && { name }),
+      ...(address && { address }),
+      phone: phone || null,
+      website: website || null,
+      hours: hours || null,
+      services: services ? JSON.stringify(services) : null,
+      ...(rating !== undefined && { rating }),
+      ...(latitude !== undefined && { latitude: latitude || null }),
+      ...(longitude !== undefined && { longitude: longitude || null }),
+    };
+
+    const updated = await db
+      .update(recyclingCentersTable)
+      .set(updateData)
+      .where(eq(recyclingCentersTable.id, centerId))
+      .returning();
+    
+    if (updated.length === 0) {
+      return res.status(404).json({ error: "Recycling center not found" });
+    }
+
+    // Parse services back to array for response
+    const result = {
+      ...updated[0],
+      services: updated[0].services ? JSON.parse(updated[0].services) : []
+    };
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error updating recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete recycling center
+app.delete("/api/centers/:id", async (req, res) => {
+  try {
+    const centerId = Number(req.params.id);
+    
+    const deleted = await db
+      .delete(recyclingCentersTable)
+      .where(eq(recyclingCentersTable.id, centerId))
+      .returning();
+    
+    if (deleted.length === 0) {
+      return res.status(404).json({ error: "Recycling center not found" });
+    }
+    
+    res.json({ success: true, message: "Recycling center deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting recycling center:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ========== INQUIRIES ========== */
+// Create inquiry (draft) - User only
+app.post("/api/inquiries", authenticateToken, async (req, res) => {
+  try {
+    const { title, question, category } = req.body;
+    
+    if (!title || !question) {
+      return res.status(400).json({ error: "Title and question are required" });
+    }
+
+    const inquiry = await db.insert(inquiriesTable).values({
+      userId: req.user.id,
+      title,
+      question,
+      category: category || null,
+      status: "draft",
+    }).returning();
+    
+    res.json(inquiry[0]);
+  } catch (error) {
+    console.error("Create inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get all inquiries for current user (draft and sent) - User only
+app.get("/api/inquiries", authenticateToken, async (req, res) => {
+  try {
+    // Return only user's own inquiries
+    const inquiries = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.userId, req.user.id));
+    res.json(inquiries);
+  } catch (error) {
+    console.error("Get inquiries error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get sent inquiries (sent + answered)
+// Users: see their own sent inquiries
+// Admins: see ALL sent inquiries from all users
+app.get("/api/inquiries/sent", authenticateToken, async (req, res) => {
+  try {
+    let inquiries;
+    
+    // If admin, return all sent/answered inquiries
+    if (req.user.role === 'admin') {
+      inquiries = await db.select().from(inquiriesTable);
+    } else {
+      // If regular user, return only their own sent/answered inquiries
+      inquiries = await db.select().from(inquiriesTable)
+        .where(eq(inquiriesTable.userId, req.user.id));
+    }
+    
+    // Filter to only sent and answered status
+    const sentInquiries = inquiries.filter(i => i.status === 'sent' || i.status === 'answered');
+    res.json(sentInquiries);
+  } catch (error) {
+    console.error("Get sent inquiries error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update inquiry (only if draft) - User only
+app.put("/api/inquiries/:id", authenticateToken, async (req, res) => {
+  try {
+    const { title, question, category } = req.body;
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only edit your own inquiries" });
+    }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Cannot edit inquiry that has been sent" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ title, question, category })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Update inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send inquiry (change status from draft to sent) - User only
+app.post("/api/inquiries/:id/send", authenticateToken, async (req, res) => {
+  try {
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only send your own inquiries" });
+    }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Inquiry has already been sent" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ status: 'sent', sentAt: new Date() })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Send inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Answer inquiry (change status from sent to answered) - Admin only
+app.post("/api/inquiries/:id/answer", authenticateToken, async (req, res) => {
+  try {
+    const { response } = req.body;
+    const inquiryId = Number(req.params.id);
+
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Unauthorized: Only admins can answer inquiries" });
+    }
+
+    if (!response) {
+      return res.status(400).json({ error: "Response is required" });
+    }
+
+    // Check if inquiry exists and is in sent status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    if (existing[0].status !== 'sent') {
+      return res.status(400).json({ error: "Can only answer sent inquiries" });
+    }
+
+    const updated = await db
+      .update(inquiriesTable)
+      .set({ 
+        response, 
+        status: 'answered', 
+        respondedAt: new Date() 
+      })
+      .where(eq(inquiriesTable.id, inquiryId))
+      .returning();
+    
+    res.json(updated[0]);
+  } catch (error) {
+    console.error("Answer inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete inquiry (only if draft) - User only
+app.delete("/api/inquiries/:id", authenticateToken, async (req, res) => {
+  try {
+    const inquiryId = Number(req.params.id);
+
+    // Check if inquiry exists and is in draft status
+    const existing = await db.select().from(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inquiry not found" });
+    }
+
+    // Check if user owns this inquiry
+    if (existing[0].userId !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized: You can only delete your own inquiries" });
+    }
+
+    if (existing[0].status !== 'draft') {
+      return res.status(400).json({ error: "Cannot delete inquiry that has been sent" });
+    }
+
+    await db
+      .delete(inquiriesTable)
+      .where(eq(inquiriesTable.id, inquiryId));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Delete inquiry error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/* ========== WASTE LOGS ========== */
+app.post("/api/logs", async (req, res) => {
   try {
     const arts = await db.select().from(articlesTable);
     res.json(arts);
