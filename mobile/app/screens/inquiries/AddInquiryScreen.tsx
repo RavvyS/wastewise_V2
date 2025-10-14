@@ -10,6 +10,8 @@ import {
   Alert,
   Modal,
   FlatList,
+  StatusBar,
+  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -21,7 +23,6 @@ interface CategoryOption {
 }
 
 const categoryOptions: CategoryOption[] = [
-  { value: '', label: 'General Question' },
   { value: 'knowledge-hub', label: '📚 Knowledge Hub' },
   { value: 'scan', label: '📸 Scan Feature' },
   { value: 'logs', label: '📊 Waste Logs' },
@@ -45,12 +46,17 @@ export default function AddInquiryScreen() {
 
   const handleSave = async () => {
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title for your inquiry');
+      Alert.alert('Required Field', 'Please enter a title for your inquiry');
+      return;
+    }
+    
+    if (!category.trim()) {
+      Alert.alert('Required Field', 'Please select a category for your inquiry');
       return;
     }
     
     if (!question.trim()) {
-      Alert.alert('Validation Error', 'Please enter your question');
+      Alert.alert('Required Field', 'Please enter your question');
       return;
     }
 
@@ -79,12 +85,17 @@ export default function AddInquiryScreen() {
 
   const handleSaveAndSend = async () => {
     if (!title.trim()) {
-      Alert.alert('Validation Error', 'Please enter a title for your inquiry');
+      Alert.alert('Required Field', 'Please enter a title for your inquiry');
+      return;
+    }
+    
+    if (!category.trim()) {
+      Alert.alert('Required Field', 'Please select a category for your inquiry');
       return;
     }
     
     if (!question.trim()) {
-      Alert.alert('Validation Error', 'Please enter your question');
+      Alert.alert('Required Field', 'Please enter your question');
       return;
     }
 
@@ -130,6 +141,7 @@ export default function AddInquiryScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="white" />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -159,7 +171,7 @@ export default function AddInquiryScreen() {
 
         {/* Category Selection */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Category</Text>
+          <Text style={styles.label}>Category *</Text>
           <TouchableOpacity
             style={styles.dropdownButton}
             onPress={() => setShowCategoryModal(true)}
@@ -277,13 +289,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingTop: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',

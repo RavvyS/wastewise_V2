@@ -61,6 +61,12 @@ export default function AddRecyclingCenterScreen() {
     editCenter ? editCenter.services || [] : []
   );
   
+  // Normalize phone input: keep only digits and limit to 10 (no typing-time alerts)
+  const handlePhoneChange = (input: string) => {
+    const digitsOnly = input.replace(/\D/g, '').slice(0, 10);
+    setPhone(digitsOnly);
+  };
+  
   // Operating hours state
   const [operatingHours, setOperatingHours] = useState<OperatingHours>(() => 
     editCenter ? parseOperatingHours(editCenter.hours) : initializeHours()
@@ -71,6 +77,8 @@ export default function AddRecyclingCenterScreen() {
   // Time input modal state
   const [timeInput, setTimeInput] = useState('09:00');
   const [selectedPeriod, setSelectedPeriod] = useState('AM');
+
+  // Removed typing-time warnings; validation happens on save
 
   // Check for location from temporary storage when screen comes back into focus
   useFocusEffect(
@@ -325,18 +333,75 @@ export default function AddRecyclingCenterScreen() {
   };
 
   const handleSave = async () => {
+    // 1. Validate name
     if (!name.trim()) {
-      Alert.alert('Validation', 'Please enter a center name');
+      Alert.alert('Required Field', 'Please enter a center name');
       return;
     }
 
+    // 2. Validate address
     if (!address.trim()) {
-      Alert.alert('Validation', 'Please enter an address');
+      Alert.alert('Required Field', 'Please enter an address');
+      return;
+    }
+
+    // 3. Validate phone number
+    if (!phone.trim()) {
+      Alert.alert('Required Field', 'Please enter a phone number');
+      return;
+    }
+
+    // 3.1 Give priority: letters/symbols not allowed
+    if (/\D/.test(phone)) {
+      Alert.alert('Invalid Phone Number', 'Phone number can only contain digits (0-9)');
+      return;
+    }
+
+    // 3.2 Validate exact length
+    const phoneDigits = phone.replace(/\D/g, ''); // Remove non-digits
+    if (phoneDigits.length !== 10) {
+      Alert.alert('Invalid Phone Number', 'Phone number must be exactly 10 digits');
+      return;
+    }
+
+    // 4. Validate operating hours - at least one day should be selected
+    const hoursString = formatOperatingHours();
+    if (!hoursString) {
+      Alert.alert('Required Field', 'Please select at least one operating day');
+      return;
+    }
+
+    // 5. Validate website with dot format check
+    if (!website.trim()) {
+      Alert.alert('Required Field', 'Please enter a website');
+      return;
+    }
+
+    // Check if website has proper format (must contain a dot)
+    if (!website.includes('.')) {
+      Alert.alert('Invalid Website', 'Please enter a valid website format (e.g., ecocenter.com)');
+      return;
+    }
+
+    // 6. Validate rating
+    if (rating === 0) {
+      Alert.alert('Required Field', 'Please provide a rating');
+      return;
+    }
+
+    // 7. Validate location
+    if (!latitude || !longitude) {
+      Alert.alert('Required Field', 'Please select a location on the map');
+      return;
+    }
+
+    // 8. Validate services - at least one service should be selected
+    if (services.length === 0) {
+      Alert.alert('Required Field', 'Please select at least one service');
       return;
     }
 
     const ratingNum = rating;
-    const hoursString = formatOperatingHours();
 
     const centerData = {
       name: name.trim(),
@@ -400,16 +465,16 @@ export default function AddRecyclingCenterScreen() {
             placeholder="e.g., 123 Green Street, Downtown"
           />
 
-          <Text style={styles.label}>Phone Number</Text>
+          <Text style={styles.label}>Phone Number *</Text>
           <TextInput
             style={styles.input}
             value={phone}
-            onChangeText={setPhone}
-            placeholder="e.g., +94 11 234 5678"
+            onChangeText={handlePhoneChange}
+            placeholder="e.g., 0712345678"
             keyboardType="phone-pad"
           />
 
-          <Text style={styles.label}>Operating Hours</Text>
+          <Text style={styles.label}>Operating Hours *</Text>
           <View style={styles.hoursContainer}>
             {DAYS_OF_WEEK.map((day) => (
               <View key={day} style={styles.dayRow}>
@@ -452,19 +517,19 @@ export default function AddRecyclingCenterScreen() {
             ))}
           </View>
 
-          <Text style={styles.label}>Website</Text>
+          <Text style={styles.label}>Website *</Text>
           <TextInput
             style={styles.input}
             value={website}
             onChangeText={setWebsite}
-            placeholder="e.g., https://ecocenter.com"
+            placeholder="e.g., ecocenter.com"
             keyboardType="url"
           />
 
-          <Text style={styles.label}>Rating</Text>
+          <Text style={styles.label}>Rating *</Text>
           {renderStarRating()}
 
-          <Text style={styles.label}>Location</Text>
+          <Text style={styles.label}>Location *</Text>
           <TouchableOpacity
             style={styles.mapPickerButton}
             onPress={() => router.push({
@@ -489,7 +554,7 @@ export default function AddRecyclingCenterScreen() {
             <MaterialIcons name="chevron-right" size={24} color="#666" />
           </TouchableOpacity>
 
-          <Text style={styles.label}>Services</Text>
+          <Text style={styles.label}>Services *</Text>
           <View style={styles.optionsContainer}>
             {COMMON_SERVICES.map((service) => (
               <TouchableOpacity

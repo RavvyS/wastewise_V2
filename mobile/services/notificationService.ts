@@ -99,7 +99,10 @@ export const getCenterStatus = (center: any): {
   notificationType: 'opening-soon' | 'closing-soon' | 'currently-open' | null;
   message: string;
 } => {
+  const timestamp = new Date().toLocaleTimeString();
+  
   if (!center.hours) {
+    console.log(`[${timestamp}] ℹ️  "${center.name}" has no operating hours`);
     return { shouldNotify: false, notificationType: null, message: '' };
   }
 
@@ -108,12 +111,14 @@ export const getCenterStatus = (center: any): {
   const todayHours = operatingHours.find(h => h.day === todayAbbr);
 
   if (!todayHours) {
+    console.log(`[${timestamp}] ℹ️  "${center.name}" is closed today (${todayAbbr})`);
     return { shouldNotify: false, notificationType: null, message: '' };
   }
 
   // Parse opening and closing times
   const timeRange = todayHours.hours.split(' - ');
   if (timeRange.length !== 2) {
+    console.log(`[${timestamp}] ⚠️  "${center.name}" has invalid time format: ${todayHours.hours}`);
     return { shouldNotify: false, notificationType: null, message: '' };
   }
 
@@ -121,6 +126,7 @@ export const getCenterStatus = (center: any): {
   const closeTime = parseTimeToDate(timeRange[1]);
   
   if (!openTime || !closeTime) {
+    console.log(`[${timestamp}] ⚠️  "${center.name}" failed to parse times: ${timeRange[0]} - ${timeRange[1]}`);
     return { shouldNotify: false, notificationType: null, message: '' };
   }
 
@@ -131,8 +137,15 @@ export const getCenterStatus = (center: any): {
   // Check if center is currently open
   const isOpen = now >= openTime && now < closeTime;
 
+  console.log(`[${timestamp}] 🕐 "${center.name}" status check:`);
+  console.log(`[${timestamp}]    Current time: ${now.toLocaleTimeString()}`);
+  console.log(`[${timestamp}]    Opens: ${openTime.toLocaleTimeString()}`);
+  console.log(`[${timestamp}]    Closes: ${closeTime.toLocaleTimeString()}`);
+  console.log(`[${timestamp}]    Is Open: ${isOpen}`);
+
   // Opening soon (within 30 minutes before opening)
   if (!isOpen && now >= openingSoonTime && now < openTime) {
+    console.log(`[${timestamp}] ✅ "${center.name}" is opening soon!`);
     return {
       shouldNotify: true,
       notificationType: 'opening-soon',
@@ -142,6 +155,7 @@ export const getCenterStatus = (center: any): {
 
   // Closing soon (within 30 minutes before closing)
   if (isOpen && now >= closingSoonTime && now < closeTime) {
+    console.log(`[${timestamp}] ✅ "${center.name}" is closing soon!`);
     return {
       shouldNotify: true,
       notificationType: 'closing-soon',
@@ -151,6 +165,7 @@ export const getCenterStatus = (center: any): {
 
   // Currently open
   if (isOpen) {
+    console.log(`[${timestamp}] ✅ "${center.name}" is currently open!`);
     return {
       shouldNotify: true,
       notificationType: 'currently-open',
@@ -158,6 +173,7 @@ export const getCenterStatus = (center: any): {
     };
   }
 
+  console.log(`[${timestamp}] ❌ "${center.name}" is closed (not in notification window)`);
   return { shouldNotify: false, notificationType: null, message: '' };
 };
 
@@ -167,12 +183,15 @@ export const sendCenterNotification = async (
   distance: number
 ): Promise<void> => {
   try {
+    const timestamp = new Date().toLocaleTimeString();
+    
     // Check cooldown period
     const lastNotified = notifiedCenters.get(center.id);
     const now = Date.now();
     
     if (lastNotified && (now - lastNotified) < NOTIFICATION_CONFIG.cooldownPeriod) {
-      console.log(`Cooldown active for center ${center.id}`);
+      const cooldownRemaining = Math.round((NOTIFICATION_CONFIG.cooldownPeriod - (now - lastNotified)) / 1000);
+      console.log(`[${timestamp}] ⏳ Cooldown active for "${center.name}" - ${cooldownRemaining}s remaining`);
       return;
     }
 
@@ -180,7 +199,7 @@ export const sendCenterNotification = async (
     const status = getCenterStatus(center);
     
     if (!status.shouldNotify) {
-      console.log(`No notification needed for center ${center.id}`);
+      console.log(`[${timestamp}] ⏸️  No notification needed for "${center.name}" - Status: ${status.notificationType || 'closed/not in notification window'}`);
       return;
     }
 
@@ -188,6 +207,11 @@ export const sendCenterNotification = async (
     const distanceText = distance < 1000 
       ? `${Math.round(distance)}m away`
       : `${(distance / 1000).toFixed(1)}km away`;
+
+    console.log(`[${timestamp}] 🔔 SENDING NOTIFICATION for "${center.name}"`);
+    console.log(`[${timestamp}]    Type: ${status.notificationType}`);
+    console.log(`[${timestamp}]    Message: ${status.message}`);
+    console.log(`[${timestamp}]    Distance: ${distanceText}`);
 
     // Send notification
     await Notifications.scheduleNotificationAsync({
@@ -207,9 +231,9 @@ export const sendCenterNotification = async (
 
     // Update cooldown
     notifiedCenters.set(center.id, now);
-    console.log(`Notification sent for center ${center.id}: ${status.message}`);
+    console.log(`[${timestamp}] ✅ Notification sent successfully for "${center.name}"`);
   } catch (error) {
-    console.error('Error sending notification:', error);
+    console.error('❌ Error sending notification:', error);
   }
 };
 

@@ -2,6 +2,10 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import NotificationHandler from "../components/NotificationHandler";
 
+// Register background location task BEFORE app renders
+// This ensures the task is defined when the app starts, not during component mount
+import '../services/locationTrackingService';
+
 export default function RootLayout() {
   return (
     <>
