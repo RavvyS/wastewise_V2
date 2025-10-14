@@ -6,6 +6,11 @@ import { NOTIFICATION_CONFIG } from '../utils/notificationConfig';
 
 const LOCATION_TASK_NAME = 'background-location-task';
 
+console.log('🔧 locationTrackingService.ts loaded - defining background task...');
+
+// Execution lock to prevent duplicate task runs when both triggers fire simultaneously
+let isTaskRunning = false;
+
 // Calculate distance using Haversine formula
 const calculateDistance = (
   lat1: number,
@@ -26,45 +31,66 @@ const calculateDistance = (
 
 // Define the background task
 TaskManager.defineTask(LOCATION_TASK_NAME, async ({ data, error }: any) => {
-  if (error) {
-    console.error('Background location task error:', error);
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`[${timestamp}] 🎯 BACKGROUND TASK TRIGGERED!`);
+  
+  // Check if task is already running (prevents duplicate notifications)
+  if (isTaskRunning) {
+    console.log(`[${timestamp}] ⏭️  Task already running, skipping duplicate execution`);
     return;
   }
+  
+  // Set the execution lock
+  isTaskRunning = true;
+  
+  try {
+    if (error) {
+      console.error(`[${timestamp}] ❌ Background location task error:`, error);
+      return;
+    }
 
-  if (data) {
-    const { locations } = data;
-    const location = locations[0];
+    if (data) {
+      const { locations } = data;
+      const location = locations[0];
 
-    if (location) {
-      console.log('Background location update:', location.coords);
-      
-      try {
-        // Fetch all recycling centers
-        const centers = await apiGet(API_ENDPOINTS.CENTERS);
+      if (location) {
+        console.log(`[${timestamp}] 📍 Background location update:`, location.coords);
         
-        // Check distance to each center
-        for (const center of centers) {
-          if (center.latitude && center.longitude) {
-            const distance = calculateDistance(
-              location.coords.latitude,
-              location.coords.longitude,
-              parseFloat(center.latitude),
-              parseFloat(center.longitude)
-            );
+        try {
+          // Fetch all recycling centers
+          const centers = await apiGet(API_ENDPOINTS.CENTERS);
+          console.log(`[${timestamp}] 🏢 Checking ${centers.length} recycling centers...`);
+          
+          // Check distance to each center
+          for (const center of centers) {
+            if (center.latitude && center.longitude) {
+              const distance = calculateDistance(
+                location.coords.latitude,
+                location.coords.longitude,
+                parseFloat(center.latitude),
+                parseFloat(center.longitude)
+              );
 
-            console.log(`Distance to ${center.name}: ${Math.round(distance)}m`);
+              console.log(`[${timestamp}] 📏 Distance to "${center.name}": ${Math.round(distance)}m (threshold: ${NOTIFICATION_CONFIG.distanceThreshold}m)`);
 
-            // If within threshold, send notification
-            if (distance <= NOTIFICATION_CONFIG.distanceThreshold) {
-              console.log(`User is near ${center.name}! Checking notification...`);
-              await sendCenterNotification(center, distance);
+              // If within threshold, send notification
+              if (distance <= NOTIFICATION_CONFIG.distanceThreshold) {
+                console.log(`[${timestamp}] ✅ User is within range of "${center.name}"! Checking notification eligibility...`);
+                await sendCenterNotification(center, distance);
+              } else {
+                console.log(`[${timestamp}] ❌ "${center.name}" is too far (${Math.round(distance)}m > ${NOTIFICATION_CONFIG.distanceThreshold}m)`);
+              }
             }
           }
+        } catch (error) {
+          console.error(`[${timestamp}] ❌ Error checking nearby centers:`, error);
         }
-      } catch (error) {
-        console.error('Error checking nearby centers:', error);
       }
     }
+  } finally {
+    // Always release the lock when done
+    isTaskRunning = false;
+    console.log(`[${timestamp}] 🔓 Task completed, lock released`);
   }
 });
 
@@ -96,9 +122,9 @@ export const startLocationTracking = async (): Promise<boolean> => {
 
     // Start location updates
     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-      accuracy: Location.Accuracy.Balanced,
-      distanceInterval: 50, // Update every 50 meters
-      timeInterval: NOTIFICATION_CONFIG.locationUpdateInterval, // Or every 1 minute
+      accuracy: Location.Accuracy.High, // High accuracy for real device testing
+      distanceInterval: 10, // 10m - good for testing in small areas, triggers on actual movement
+      timeInterval: NOTIFICATION_CONFIG.locationUpdateInterval, // Check every 15 seconds
       foregroundService: {
         notificationTitle: 'WasteWise Location',
         notificationBody: 'Tracking nearby recycling centers',

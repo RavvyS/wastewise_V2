@@ -11,8 +11,10 @@ import {
   TextInput,
   ScrollView,
   StatusBar,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
@@ -72,7 +74,7 @@ export default function AnswerInquiriesScreen() {
 
   const submitAnswer = async () => {
     if (!responseText.trim()) {
-      Alert.alert('Validation Error', 'Please enter a response');
+      Alert.alert('Required Field', 'Please enter a response');
       return;
     }
 
@@ -328,7 +330,10 @@ export default function AnswerInquiriesScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlayInner}>
+              <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+                <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Answer Inquiry</Text>
               <TouchableOpacity onPress={() => setAnswerModalVisible(false)}>
@@ -336,7 +341,11 @@ export default function AnswerInquiriesScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
+            <ScrollView 
+              style={styles.modalBody} 
+              contentContainerStyle={styles.modalBodyContent}
+              keyboardShouldPersistTaps="handled"
+            >
               {selectedInquiry && (
                 <>
                   <Text style={styles.modalInquiryTitle}>{selectedInquiry.title}</Text>
@@ -373,7 +382,10 @@ export default function AnswerInquiriesScreen() {
                 <Text style={styles.submitButtonText}>Submit Answer</Text>
               </TouchableOpacity>
             </View>
-          </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </Modal>
     </View>
@@ -664,6 +676,10 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
+  },
+
+  modalOverlayInner: {
+    flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
@@ -672,14 +688,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    height: '85%',
+    maxHeight: '75%',
   },
 
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -691,12 +707,11 @@ const styles = StyleSheet.create({
   },
 
   modalBody: {
-    flex: 1,
+    flexShrink: 1,
   },
 
   modalBodyContent: {
-    padding: 20,
-    flexGrow: 1,
+    padding: 16,
   },
 
   modalInquiryTitle: {
@@ -726,7 +741,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 16,
-    minHeight: 120,
+    minHeight: 100,
+    maxHeight: 150,
     textAlignVertical: 'top',
   },
 
@@ -739,19 +755,20 @@ const styles = StyleSheet.create({
 
   modalActions: {
     flexDirection: 'row',
-    padding: 20,
+    padding: 16,
+    gap: 12,
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
 
   cancelButton: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#ddd',
     alignItems: 'center',
-    marginRight: 8,
   },
 
   cancelButtonText: {
@@ -761,11 +778,11 @@ const styles = StyleSheet.create({
 
   submitButton: {
     flex: 1,
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
     backgroundColor: '#4CAF50',
     alignItems: 'center',
-    marginLeft: 8,
   },
 
   submitButtonText: {

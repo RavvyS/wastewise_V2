@@ -73,7 +73,7 @@ export default function RecyclingCentersTab() {
               parseFloat(center.latitude),
               parseFloat(center.longitude)
             );
-            return { ...center, distance: Math.round(distance * 10) / 10 };
+            return { ...center, distance }; // Store raw distance, format during display
           }
           return center;
         });
@@ -124,7 +124,7 @@ export default function RecyclingCentersTab() {
             parseFloat(center.latitude),
             parseFloat(center.longitude)
           );
-          return { ...center, distance: Math.round(distance * 10) / 10 }; // Round to 1 decimal
+          return { ...center, distance }; // Store raw distance, format during display
         }
         return center;
       });
@@ -306,11 +306,11 @@ export default function RecyclingCentersTab() {
               <Text style={styles.ratingText}>{item.rating}</Text>
             </View>
           )}
-          {item.distance !== undefined && item.distance > 0 && (
+          {item.distance !== undefined && (
             <Text style={styles.distanceText}>
               {item.distance < 1 
                 ? `${Math.round(item.distance * 1000)} m` 
-                : `${item.distance} km`}
+                : `${item.distance.toFixed(1)} km`}
             </Text>
           )}
         </View>
