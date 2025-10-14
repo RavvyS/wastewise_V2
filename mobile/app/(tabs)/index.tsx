@@ -71,7 +71,7 @@ export default function HomeScreen() {
       icon: "chatbubbles-outline" as const,
       color: Colors.primary,
       description: "Ask waste separation questions",
-      route: "/chatbot",
+      route: "/AIChat",
     },
   ];
 
