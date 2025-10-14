@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
-  "http://192.168.8.189:8001"; // Default fallback
+  "http://192.168.8.189:8001"; 
 
 if (API_URL === "http://192.168.8.189:8001") {
   console.warn(
