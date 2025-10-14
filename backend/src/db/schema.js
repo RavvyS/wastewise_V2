@@ -1,15 +1,23 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
-import { sql } from 'drizzle-orm'; // <-- CORRECTED IMPORT
+import {
+  sqliteTable,
+  text,
+  integer,
+  index,
+  uniqueIndex,
+} from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
+
 /* ========== UTILITY FUNCTIONS FOR SQLITE (NO TS ANNOTATIONS) ========== */
 // SQLite AUTOINCREMENT PRIMARY KEY: uses integer and autoIncrement
-const sqliteSerial = (name) => integer(name, { mode: 'number' }).primaryKey({ autoIncrement: true });
+const sqliteSerial = (name) =>
+  integer(name, { mode: "number" }).primaryKey({ autoIncrement: true });
 
 // SQLite CURRENT_TIMESTAMP for defaults: stores time as text
-const sqliteTimestamp = (name) => text(name).default(sql`CURRENT_TIMESTAMP`); 
+const sqliteTimestamp = (name) => text(name).default(sql`CURRENT_TIMESTAMP`);
 
 // SQLite Boolean (stored as integer 0 or 1)
-const sqliteBoolean = (name) => integer(name, { mode: 'boolean' }).default(false); 
-
+const sqliteBoolean = (name) =>
+  integer(name, { mode: "boolean" }).default(false);
 
 /* ========== USERS ========== */
 export const usersTable = sqliteTable("users", {
@@ -30,14 +38,20 @@ export const wasteCategoriesTable = sqliteTable("waste_categories", {
   description: text("description"),
 });
 
-export const wasteItemsTable = sqliteTable("waste_items", {
-  id: sqliteSerial("id"),
-  categoryId: integer("category_id").notNull().references(() => wasteCategoriesTable.id),
-  name: text("name").notNull(),
-  disposalInstructions: text("disposal_instructions"),
-}, (table) => ({
-  categoryIdIdx: index("waste_items_category_id_idx").on(table.categoryId),
-}));
+export const wasteItemsTable = sqliteTable(
+  "waste_items",
+  {
+    id: sqliteSerial("id"),
+    categoryId: integer("category_id")
+      .notNull()
+      .references(() => wasteCategoriesTable.id),
+    name: text("name").notNull(),
+    disposalInstructions: text("disposal_instructions"),
+  },
+  (table) => ({
+    categoryIdIdx: index("waste_items_category_id_idx").on(table.categoryId),
+  })
+);
 
 /* ========== LEARNING HUB (QUIZZES & ARTICLES) ========== */
 export const quizzesTable = sqliteTable("quizzes", {
@@ -48,7 +62,9 @@ export const quizzesTable = sqliteTable("quizzes", {
 
 export const quizQuestionsTable = sqliteTable("quiz_questions", {
   id: sqliteSerial("id"),
-  quizId: integer("quiz_id").notNull().references(() => quizzesTable.id),
+  quizId: integer("quiz_id")
+    .notNull()
+    .references(() => quizzesTable.id),
   question: text("question").notNull(),
   correctAnswer: text("correct_answer").notNull(),
   options: text("options"), // JSON string: ["a","b","c"]
@@ -75,35 +91,41 @@ export const recyclingCentersTable = sqliteTable("recycling_centers", {
   hours: text("hours"),
   services: text("services"),
   rating: integer("rating").default(0),
-  latitude: text("latitude"), 
-  longitude: text("longitude"), 
-  isApproved: boolean("is_approved").default(false),
-  createdAt: timestamp("created_at").defaultNow(),
+  latitude: text("latitude"),
+  longitude: text("longitude"),
+  createdAt: sqliteTimestamp("created_at"),
 });
 
 export const inquiriesTable = sqliteTable("inquiries", {
   id: sqliteSerial("id"),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
+  userId: integer("user_id")
+    .notNull()
+    .references(() => usersTable.id),
   title: text("title").notNull(),
   question: text("question").notNull(),
   category: text("category"),
   status: text("status").default("draft").notNull(), // draft, sent, answered
   response: text("response"),
   createdAt: sqliteTimestamp("created_at"),
-  createdAt: timestamp("created_at").defaultNow(),
-  sentAt: timestamp("sent_at"),
-  respondedAt: timestamp("responded_at"),
+  sentAt: sqliteTimestamp("sent_at"),
+  respondedAt: sqliteTimestamp("responded_at"),
 });
 
 /* ========== USER WASTE LOGS ========== */
-export const wasteLogsTable = sqliteTable("waste_logs", {
-  id: sqliteSerial("id"),
-  userId: integer("user_id").notNull().references(() => usersTable.id),
-  itemId: integer("item_id").references(() => wasteItemsTable.id),
-  description: text("description"), // e.g. "Recycled 2 bottles"
-  quantity: integer("quantity"),
-  createdAt: sqliteTimestamp("created_at"),
-}, (table) => ({
-  userIdIdx: index("waste_logs_user_id_idx").on(table.userId),
-  createdAtIdx: index("waste_logs_created_at_idx").on(table.createdAt),
-}));
+export const wasteLogsTable = sqliteTable(
+  "waste_logs",
+  {
+    id: sqliteSerial("id"),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id),
+    itemId: integer("item_id").references(() => wasteItemsTable.id),
+    description: text("description"), // e.g. "Recycled 2 bottles"
+    quantity: integer("quantity"),
+    createdAt: sqliteTimestamp("created_at"),
+  },
+  (table) => ({
+    userIdIdx: index("waste_logs_user_id_idx").on(table.userId),
+    createdAtIdx: index("waste_logs_created_at_idx").on(table.createdAt),
+  })
+);

@@ -1,60 +1,71 @@
-// app/_layout.tsx
-
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-// Import the DatabaseProvider component
-import DatabaseProvider from './providers/DatabaseProvider'; 
+import DatabaseProvider from "./providers/DatabaseProvider";
 import NotificationHandler from "../components/NotificationHandler";
 
 export default function RootLayout() {
   return (
-    <>
-      <StatusBar style="dark" />
-      
-      {/* WRAP THE ENTIRE NAVIGATION STACK WITH THE DATABASE PROVIDER */}
-      <DatabaseProvider>
-        <Stack
-          screenOptions={{
-            headerShown: false, // You can override this in specific screens
-          }}
-        >
-          {/* Main Learning Hub Screen */}
-          <Stack.Screen name="index" options={{ title: 'Learning Hub' }} />
-          
-          {/* Detail/Read Routes */}
-          <Stack.Screen name="ArticleDetail" options={{ title: 'Article Details', headerShown: true }} />
-          <Stack.Screen name="QuizDetail" options={{ title: 'Take Quiz', headerShown: true }} />
-          
-          {/* CRUD Routes (Presented as Modals) */}
-          <Stack.Screen name="create" options={{ 
-            title: 'Create New Content', 
-            presentation: 'modal',
-            headerShown: true
-          }} />
-          <Stack.Screen name="edit/[id]" options={{ 
-            title: 'Edit Content', 
-            presentation: 'modal',
-            headerShown: true
-          }} />
-          
-          {/* Keep your existing routes if they are necessary for your app's structure: */}
-          <Stack.Screen name="welcome" options={{ headerShown: false }} />
-          <Stack.Screen name="auth" options={{ headerShown: false }} />
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+    // Providers like DatabaseProvider should wrap the entire app
+    <DatabaseProvider>
+      <>
+        {/* Set the status bar style for the app */}
+        <StatusBar style="dark" />
+
+        {/* The NotificationHandler can be placed here if it doesn't render any UI */}
+        <NotificationHandler />
+
+        {/* This is the main Stack navigator for the entire app */}
+        <Stack screenOptions={{ headerShown: false }}>
+          {/* The primary entry point is the (tabs) layout, which contains your main screens. */}
+          <Stack.Screen name="(tabs)" />
+
+          {/* Authentication and onboarding screens */}
+          <Stack.Screen name="welcome" />
+          <Stack.Screen name="auth" />
+
+          {/* Detail screens that should be pushed on top of the tabs */}
+          <Stack.Screen
+            name="ArticleDetail"
+            options={{
+              title: "Article",
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
+            name="QuizDetail"
+            options={{
+              title: "Quiz",
+              headerShown: true,
+            }}
+          />
+
+          {/* Other standalone screens */}
+          <Stack.Screen
+            name="AIChat"
+            options={{
+              headerShown: false,
+            }}
+          />
+
+          {/* CRUD screens presented as modals */}
+          <Stack.Screen
+            name="create"
+            options={{
+              title: "Create Content",
+              presentation: "modal",
+              headerShown: true,
+            }}
+          />
+          <Stack.Screen
+            name="edit/[id]"
+            options={{
+              title: "Edit Content",
+              presentation: "modal",
+              headerShown: true,
+            }}
+          />
         </Stack>
-      </DatabaseProvider>
-=======
-      <NotificationHandler />
-      <Stack
-        screenOptions={{
-          headerShown: false, // We'll handle headers in individual screens
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="welcome" options={{ headerShown: false }} />
-        <Stack.Screen name="auth" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </>
+      </>
+    </DatabaseProvider>
   );
 }

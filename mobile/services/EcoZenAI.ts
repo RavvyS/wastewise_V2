@@ -1,55 +1,57 @@
 import Constants from "expo-constants";
-import OpenAI from "openai";
 
-// Define a fallback key to prevent the app from crashing during initialization
-// if the real key is missing from the environment variables.
-// NOTE: API calls will still fail until you fix your environment variables.
-const FALLBACK_DUMMY_KEY = "sk-DUMMY-KEY-NOT-CONFIGURED";
+// Get the backend API URL from environment variables or fallback to your LAN IP
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
+  "http://192.168.8.189:8001"; // Default fallback
 
-// Check all standard locations for the API key
-const apiKey = 
-    process.env.EXPO_PUBLIC_OPENAI_API_KEY || 
-    Constants.expoConfig?.extra?.EXPO_PUBLIC_OPENAI_API_KEY || 
-    Constants.expoConfig?.extra?.OPENAI_API_KEY ||
-    FALLBACK_DUMMY_KEY; // Use the dummy key as a last resort to allow initialization
-
-
-if (apiKey === FALLBACK_DUMMY_KEY) {
-    console.warn(
-        "WARNING: Using dummy API key. Ensure 'EXPO_PUBLIC_OPENAI_API_KEY' " + 
-        "is set in your .env file and the server is restarted. AI functions will fail."
-    );
+if (API_URL === "http://192.168.8.189:8001") {
+  console.warn(
+    "⚠️ WARNING: Using default API URL. " +
+      "Set 'EXPO_PUBLIC_API_URL' in your .env file to your backend server address."
+  );
 }
 
-// Initialize OpenAI. Since apiKey is now guaranteed to be a string, 
-// the initialization crash is bypassed.
-const openai = new OpenAI({
-  apiKey: apiKey,
-});
+interface ChatResponse {
+  response: string;
+}
+
+interface ErrorResponse {
+  error?: string;
+  message?: string;
+}
 
 export async function chatWithEcoZen(userInput: string): Promise<string> {
-  try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are EcoZen AI, a friendly and knowledgeable assistant who helps users learn about sustainability, recycling, and eco-friendly living.",
-        },
-        { role: "user", content: userInput },
-      ],
-    });
+  try {
+    // POST request to backend
+    const response = await fetch(`${API_URL}/api/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ message: userInput }),
+    });
 
-    const aiResponse =
-      completion.choices[0].message?.content?.trim() ??
-      "Sorry, I couldn’t understand that.";
+    // Handle non-2xx responses
+    if (!response.ok) {
+      const errorData = (await response.json().catch(() => ({}))) as ErrorResponse;
+      throw new Error(errorData.error || errorData.message || `Backend returned status ${response.status}`);
+    }
 
-    return aiResponse;
-  } catch (error) {
-    // This catch block will now handle the 401 Unauthorized error (from the dummy key)
-    // or any other connection error.
-    console.error("Error talking to OpenAI:", error);
-    return "I’m having trouble connecting to the AI service right now. Please check your API key.";
-  }
+    // Parse successful response
+    const data = (await response.json()) as ChatResponse;
+    return data.response || "Sorry, I couldn't understand that.";
+
+  } catch (error: any) {
+    console.error("❌ Error talking to backend:", error);
+
+    // Network or fetch failure
+    if (error instanceof TypeError && error.message.includes("Network request failed")) {
+      return "Cannot connect to the server. Please check your internet connection and make sure your backend is running.";
+    }
+
+    // Return friendly error for all other issues
+    return "I'm having trouble connecting to the AI service right now. Please try again later.";
+  }
 }

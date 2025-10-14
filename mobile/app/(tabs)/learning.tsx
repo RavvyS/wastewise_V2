@@ -11,6 +11,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router"; // Import useRouter
 
 interface Article {
   id: number;
@@ -43,6 +44,7 @@ interface QuizQuestion {
 }
 
 export default function LearningScreen() {
+  const router = useRouter(); // Initialize the router
   const [activeTab, setActiveTab] = useState<"articles" | "quizzes">(
     "articles"
   );
@@ -217,6 +219,15 @@ export default function LearningScreen() {
         <Text style={styles.headerTitle}>Learning Hub</Text>
         <Text style={styles.headerSubtitle}>Expand your knowledge</Text>
       </View>
+
+      {/* AI Chat Button - NEWLY ADDED */}
+      <TouchableOpacity
+        style={styles.aiButton}
+        onPress={() => router.push("/AIChat")}
+      >
+        <Ionicons name="sparkles" size={22} color="#FFFFFF" />
+        <Text style={styles.aiButtonText}>Chat with EcoZen AI</Text>
+      </TouchableOpacity>
 
       {/* Tab Navigation */}
       <View style={styles.tabContainer}>
@@ -523,6 +534,29 @@ const styles = StyleSheet.create({
     color: "#666",
     marginTop: 4,
   },
+  // New styles for the AI button
+  aiButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#4CAF50",
+    marginHorizontal: 20,
+    marginTop: 10,
+    marginBottom: 10,
+    paddingVertical: 14,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  aiButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 10,
+  },
   tabContainer: {
     flexDirection: "row",
     paddingHorizontal: 20,
@@ -740,7 +774,6 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   modalBody: {
-    flex: 1,
     padding: 20,
   },
   articleContent: {
@@ -752,7 +785,6 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   quizContent: {
-    flex: 1,
     padding: 20,
   },
   progressBar: {

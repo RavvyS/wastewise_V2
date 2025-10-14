@@ -8,6 +8,13 @@
       "when": 1760225392357,
       "tag": "0000_green_crystal",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1760430527961,
+      "tag": "0001_fantastic_roulette",
+      "breakpoints": true
     }
   ]
 }
