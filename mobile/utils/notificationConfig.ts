@@ -13,7 +13,7 @@ export const NOTIFICATION_CONFIG = {
   cooldownPeriod: 30000,  // 30 seconds (for testing - production: 3600000 for 1 hour)
   
   // Background location tracking interval (in milliseconds)
-  locationUpdateInterval: 15000, // Check every 10 seconds for quick testing (production: 60000 for 1 min)
+  locationUpdateInterval: 10000, // Check every 10 seconds for quick testing (production: 60000 for 1 min)
   
   // Notification settings
   enableNotifications: true,
