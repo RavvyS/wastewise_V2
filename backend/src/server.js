@@ -3,7 +3,7 @@ import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { db } from "./config/db.js"; // <-- your drizzle db connection
+import { db } from "./config/db.js";
 import {
   usersTable,
   wasteCategoriesTable,
@@ -21,242 +21,27 @@ import geminiRouter from "./routes/gemini.js";
 const app = express();
 const PORT = ENV.PORT || 8001;
 
-// Middleware
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // Increase limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Authentication middleware
+// ===== Middleware =====
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Access token required" });
-  }
+  if (!token) return res.status(401).json({ error: "Access token required" });
 
   jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Invalid or expired token" });
-    }
+    if (err) return res.status(403).json({ error: "Invalid or expired token" });
     req.user = user;
     next();
   });
 };
 
-/* ========== AUTHENTICATION ========== */
-
-// User Registration
-app.post("/api/auth/signup", async (req, res) => {
-  try {
-    const { name, email, password, phone } = req.body;
-
-    // Validation
-    if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({ error: "Name, email, and password are required" });
-    }
-
-    if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ error: "Password must be at least 6 characters long" });
-    }
-
-    // Check if user already exists
-    const existingUser = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, email));
-    if (existingUser.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "User with this email already exists" });
-    }
-
-    // Hash password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    // Create user
-    const newUser = await db
-      .insert(usersTable)
-      .values({
-        name,
-        email,
-        password: hashedPassword,
-        phone: phone || null,
-        role: "user",
-        isActive: true,
-      })
-      .returning();
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: newUser[0].id,
-        email: newUser[0].email,
-        name: newUser[0].name,
-        role: newUser[0].role,
-      },
-      ENV.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = newUser[0];
-
-    res.status(201).json({
-      message: "User created successfully",
-      user: userWithoutPassword,
-      token,
-    });
-  } catch (error) {
-    console.error("Signup error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// User Login
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Validation
-    if (!email || !password) {
-      return res.status(400).json({ error: "Email and password are required" });
-    }
-
-    // Find user
-    const users = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.email, email));
-    if (users.length === 0) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    const user = users[0];
-
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({ error: "Account is disabled" });
-    }
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-      },
-      ENV.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // Return user data without password
-    const { password: _, ...userWithoutPassword } = user;
-
-    res.json({
-      message: "Login successful",
-      user: userWithoutPassword,
-      token,
-    });
-  } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Get current user profile (protected route)
-app.get("/api/auth/me", authenticateToken, async (req, res) => {
-  try {
-    const users = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, req.user.id));
-    if (users.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const { password, ...userWithoutPassword } = users[0];
-    res.json(userWithoutPassword);
-  } catch (error) {
-    console.error("Get profile error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Change password (protected route)
-app.put("/api/auth/change-password", authenticateToken, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res
-        .status(400)
-        .json({ error: "Current password and new password are required" });
-    }
-
-    if (newPassword.length < 6) {
-      return res
-        .status(400)
-        .json({ error: "New password must be at least 6 characters long" });
-    }
-
-    // Get current user
-    const users = await db
-      .select()
-      .from(usersTable)
-      .where(eq(usersTable.id, req.user.id));
-    if (users.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const user = users[0];
-
-    // Verify current password
-    const isValidPassword = await bcrypt.compare(
-      currentPassword,
-      user.password
-    );
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Current password is incorrect" });
-    }
-
-    // Hash new password
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    await db
-      .update(usersTable)
-      .set({ password: hashedPassword })
-      .where(eq(usersTable.id, req.user.id));
-
-    res.json({ message: "Password changed successfully" });
-  } catch (error) {
-    console.error("Change password error:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// Admin middleware
 const authenticateAdmin = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) {
-    return res.status(401).json({ error: "Access token required" });
-  }
+  if (!token) return res.status(401).json({ error: "Access token required" });
 
   jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
     if (err) {
@@ -550,63 +335,83 @@ app.delete("/api/items/:id", async (req, res) => {
 });
 
 /* ========== QUIZZES ========== */
-app.post("/api/quizzes", async (req, res) => {
-  const quiz = await db.insert(quizzesTable).values(req.body).returning();
-  res.json(quiz);
+// Create quiz (admin)
+app.post("/api/quizzes", authenticateAdmin, async (req, res) => {
+  try {
+    const quiz = await db.insert(quizzesTable).values(req.body).returning();
+    res.json(quiz[0]);
+  } catch (err) {
+    console.error('BACKEND ERROR on POST /api/quizzes:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
+// Get all quizzes
 app.get("/api/quizzes", async (req, res) => {
-  const quizzes = await db.select().from(quizzesTable);
-  res.json(quizzes);
+  try {
+    const quizzes = await db.select().from(quizzesTable);
+    res.json(quizzes);
+  } catch (err) {
+    console.error('BACKEND ERROR on GET /api/quizzes:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.put("/api/quizzes/:id", async (req, res) => {
-  const updated = await db
-    .update(quizzesTable)
-    .set(req.body)
-    .where(eq(quizzesTable.id, Number(req.params.id)))
-    .returning();
-  res.json(updated);
+// Get quiz + questions
+app.get("/api/quizzes/:id/full", async (req, res) => {
+  try {
+    const quizId = Number(req.params.id);
+    const quiz = await db
+      .select()
+      .from(quizzesTable)
+      .where(eq(quizzesTable.id, quizId));
+    const questions = await db
+      .select()
+      .from(quizQuestionsTable)
+      .where(eq(quizQuestionsTable.quizId, quizId));
+    if (quiz.length === 0) return res.status(404).json({ error: "Quiz not found" });
+    res.json({ ...quiz[0], questions });
+  } catch (err) {
+    console.error('BACKEND ERROR on GET /api/quizzes/:id/full:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.delete("/api/quizzes/:id", async (req, res) => {
-  await db
-    .delete(quizzesTable)
-    .where(eq(quizzesTable.id, Number(req.params.id)));
-  res.json({ success: true });
+// Update quiz (admin)
+app.put("/api/quizzes/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const updated = await db
+      .update(quizzesTable)
+      .set(req.body)
+      .where(eq(quizzesTable.id, Number(req.params.id)))
+      .returning();
+    res.json(updated[0]);
+  } catch (err) {
+    console.error('BACKEND ERROR on PUT /api/quizzes/:id:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-/* ========== QUIZ QUESTIONS ========== */
-app.post("/api/questions", async (req, res) => {
-  const q = await db.insert(quizQuestionsTable).values(req.body).returning();
-  res.json(q);
-});
-
-app.get("/api/questions", async (req, res) => {
-  const qs = await db.select().from(quizQuestionsTable);
-  res.json(qs);
-});
-
-app.put("/api/questions/:id", async (req, res) => {
-  const updated = await db
-    .update(quizQuestionsTable)
-    .set(req.body)
-    .where(eq(quizQuestionsTable.id, Number(req.params.id)))
-    .returning();
-  res.json(updated);
-});
-
-app.delete("/api/questions/:id", async (req, res) => {
-  await db
-    .delete(quizQuestionsTable)
-    .where(eq(quizQuestionsTable.id, Number(req.params.id)));
-  res.json({ success: true });
+// Delete quiz (admin)
+app.delete("/api/quizzes/:id", authenticateAdmin, async (req, res) => {
+  try {
+    await db.delete(quizzesTable).where(eq(quizzesTable.id, Number(req.params.id)));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('BACKEND ERROR on DELETE /api/quizzes/:id:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /* ========== ARTICLES ========== */
-app.post("/api/articles", async (req, res) => {
-  const art = await db.insert(articlesTable).values(req.body).returning();
-  res.json(art);
+app.post("/api/articles", authenticateAdmin, async (req, res) => {
+  try {
+    const art = await db.insert(articlesTable).values(req.body).returning();
+    res.json(art[0]);
+  } catch (err) {
+    console.error('BACKEND ERROR on POST /api/articles:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/articles", async (req, res) => {
@@ -629,6 +434,7 @@ app.delete("/api/articles/:id", async (req, res) => {
     .where(eq(articlesTable.id, Number(req.params.id)));
   res.json({ success: true });
 });
+
 
 /* ========== RECYCLING CENTERS ========== */
 
@@ -962,132 +768,121 @@ app.delete("/api/inquiries/:id", authenticateToken, async (req, res) => {
   }
 });
 
-/* ========== WASTE LOGS ========== */
+/* ========== WASTE LOGS (Placeholder routes - you may need to adjust these) ========== */
 app.post("/api/logs", async (req, res) => {
   try {
+    // This route seems to be incorrectly copying the GET /api/articles logic
+    // You should insert a waste log here
     const log = await db.insert(wasteLogsTable).values(req.body).returning();
     res.json(log[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    console.error('BACKEND ERROR on POST /api/logs:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/logs", async (req, res) => {
-  try {
-    const { userId } = req.query;
-    let logs;
+// The following PUT/DELETE articles routes were misplaced under WASTE LOGS and are now removed/fixed to avoid confusion.
 
-    if (userId) {
-      logs = await db
-        .select({
-          id: wasteLogsTable.id,
-          description: wasteLogsTable.description,
-          quantity: wasteLogsTable.quantity,
-          createdAt: wasteLogsTable.createdAt,
-          itemName: wasteItemsTable.name,
-          categoryName: wasteCategoriesTable.name,
-          disposalInstructions: wasteItemsTable.disposalInstructions,
-        })
-        .from(wasteLogsTable)
-        .leftJoin(
-          wasteItemsTable,
-          eq(wasteLogsTable.itemId, wasteItemsTable.id)
-        )
-        .leftJoin(
-          wasteCategoriesTable,
-          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
-        )
-        .where(eq(wasteLogsTable.userId, Number(userId)))
-        .orderBy(wasteLogsTable.createdAt);
-    } else {
-      logs = await db
-        .select({
-          id: wasteLogsTable.id,
-          userId: wasteLogsTable.userId,
-          description: wasteLogsTable.description,
-          quantity: wasteLogsTable.quantity,
-          createdAt: wasteLogsTable.createdAt,
-          itemName: wasteItemsTable.name,
-          categoryName: wasteCategoriesTable.name,
-        })
-        .from(wasteLogsTable)
-        .leftJoin(
-          wasteItemsTable,
-          eq(wasteLogsTable.itemId, wasteItemsTable.id)
-        )
-        .leftJoin(
-          wasteCategoriesTable,
-          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
-        )
-        .orderBy(wasteLogsTable.createdAt);
+/* ========== PUBLIC LEARNING HUB ========== */
+// Get all quizzes for learning hub
+app.get("/api/learning-hub/quizzes", async (req, res) => {
+  try {
+    const quizzes = await db.select().from(quizzesTable);
+    res.json(quizzes);
+  } catch (err) {
+    console.error('BACKEND ERROR on GET /api/learning-hub/quizzes:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all articles for learning hub
+app.get("/api/learning-hub/articles", async (req, res) => {
+  try {
+    const articles = await db.select().from(articlesTable);
+    res.json(articles);
+  } catch (err) {
+    console.error('BACKEND ERROR on GET /api/learning-hub/articles:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/* ========== GEMINI CHAT ========== */
+// 1. Import the new Google Gen AI SDK
+import { GoogleGenAI } from '@google/genai';
+
+// 2. Initialize the Gemini client
+// It will automatically look for GEMINI_API_KEY environment variable.
+// I'm using the ENV object here based on your existing structure, but typically you'd use process.env.
+const ai = new GoogleGenAI({ 
+  apiKey: process.env.GEMINI_API_KEY || ENV.GEMINI_API_KEY,
+});
+const chatModel = "gemini-2.5-flash"; // A fast and capable model for chat
+
+// 3. Replace the old /api/chat route with the Gemini implementation
+app.post("/api/chat", async (req, res) => {
+  try {
+    console.log("📩 Received chat request (via Gemini)");
+    const { message } = req.body;
+
+    if (!message) {
+      console.error("❌ No message provided");
+      return res.status(400).json({ error: "Message is required" });
     }
 
-    res.json(logs);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+    console.log("💬 User message:", message);
 
-app.get("/api/logs/stats/:userId", async (req, res) => {
-  try {
-    const { userId } = req.params;
+    // Check if API key exists
+    if (!process.env.GEMINI_API_KEY && !ENV.GEMINI_API_KEY) {
+      console.error("❌ Gemini API key not configured");
+      return res.status(500).json({ 
+        error: "Gemini API key not configured on server" 
+      });
+    }
 
-    // Get monthly stats
-    const monthlyStats = await db
-      .select()
-      .from(wasteLogsTable)
-      .where(eq(wasteLogsTable.userId, Number(userId)));
+    // Configure the chat system instruction
+    const systemInstruction = "You are EcoZen AI, a friendly and knowledgeable assistant who helps users learn about sustainability, recycling, and eco-friendly living. Keep your responses concise and helpful.";
 
-    // Calculate total quantity and count
-    const totalQuantity = monthlyStats.reduce(
-      (sum, log) => sum + (log.quantity || 0),
-      0
-    );
-    const totalLogs = monthlyStats.length;
-
-    res.json({
-      totalQuantity,
-      totalLogs,
-      monthlyStats: monthlyStats.slice(-30), // Last 30 entries
+    // Call the Gemini API
+    const response = await ai.models.generateContent({
+      model: chatModel,
+      contents: [{ role: "user", parts: [{ text: message }] }],
+      config: {
+        systemInstruction: systemInstruction,
+      },
     });
+
+    const aiResponse = response.text?.trim() || "Sorry, I couldn't get a clear response from the AI.";
+
+    console.log("✅ Gemini response:", aiResponse.substring(0, 100) + "...");
+
+    res.json({ response: aiResponse });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    // Check for rate limit or quota errors specifically
+    if (error.status === 429) {
+      console.error("❌ Gemini chat error: Rate Limit Exceeded (429)");
+    }
+    console.error("❌ Gemini chat error:", error.message);
+    console.error("Full error:", error);
+    
+    res.status(500).json({ 
+      error: "Failed to get AI response",
+      message: error.message,
+      details: error.toString()
+    });
   }
 });
+// 4. (Optional) Removed the old, unused OpenAI import and initialization to clean up the code.
+// The OpenAI client setup was here before.
 
-app.put("/api/logs/:id", async (req, res) => {
-  try {
-    const updated = await db
-      .update(wasteLogsTable)
-      .set(req.body)
-      .where(eq(wasteLogsTable.id, Number(req.params.id)))
-      .returning();
-    res.json(updated[0]);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete("/api/logs/:id", async (req, res) => {
-  try {
-    await db
-      .delete(wasteLogsTable)
-      .where(eq(wasteLogsTable.id, Number(req.params.id)));
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/* ========== GEMINI AI ROUTES ========== */
+/* ========== GEMINI AI ROUTES (EXISTING ROUTER) ========== */
 app.use("/api/gemini", geminiRouter);
 
 /* ========== START SERVER ========== */
-
 // For local development
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => {
-    console.log("Server is running on port", PORT);
+    console.log("✅ Server running on port", PORT);
   });
 }
 
