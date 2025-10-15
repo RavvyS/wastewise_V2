@@ -76,9 +76,14 @@ export default function HomeScreen() {
   ];
 
   const handleNavigation = (route: string) => {
-    // Remove the leading slash and navigate to the tab
-    const tabRoute = route.substring(1);
-    router.push(`/(tabs)/${tabRoute}` as any);
+    // AIChat is a standalone screen, not in tabs
+    if (route === "/AIChat") {
+      router.push("/AIChat" as any);
+    } else {
+      // Remove the leading slash and navigate to the tab
+      const tabRoute = route.substring(1);
+      router.push(`/(tabs)/${tabRoute}` as any);
+    }
   };
 
   const recentActivities = [
