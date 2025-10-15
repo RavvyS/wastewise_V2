@@ -1,6 +1,6 @@
 // app/AIChat.tsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
     View, 
     Text, 
@@ -14,7 +14,10 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from "expo-speech";
-import Voice from '@react-native-community/voice'; 
+import {
+  useSpeechRecognitionEvent,
+  ExpoSpeechRecognitionModule,
+} from "expo-speech-recognition"; 
 
 // ✅ Use the simple fetch service that talks to the Node.js backend
 // NOTE: Assuming this file is located at ./services/EcoZenAI.ts
@@ -34,9 +37,10 @@ export default function AIChat() {
     const [isLoading, setIsLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
     
-    const scrollViewRef = React.useRef<ScrollView>(null);
+    const scrollViewRef = useRef<ScrollView>(null);
+    const lastTranscriptRef = useRef<string>("");
 
-    // Add welcome message on mount
+    // Add welcome message on mount and cleanup on unmount
     useEffect(() => {
         const welcomeMsg: Message = {
             id: Date.now(),
@@ -44,47 +48,66 @@ export default function AIChat() {
             sender: 'ai'
         };
         setMessages([welcomeMsg]);
+
+        // Cleanup: Stop speech when navigating away
+        return () => {
+            Speech.stop();
+        };
     }, []);
     
-    // --- SETUP VOICE EVENT LISTENERS ---
+    // --- SETUP SPEECH RECOGNITION PERMISSIONS ---
     useEffect(() => {
-    let voiceAvailable = true;
-
-    const setupVoice = async () => {
-        try {
-            await Voice.isAvailable(); // just to ensure it loads
-            Voice.onSpeechStart = () => setIsListening(true);
-            Voice.onSpeechEnd = () => setIsListening(false);
-            Voice.onSpeechResults = (e) => {
-                if (e.value?.length) {
-                    const result = e.value[0];
-                    setInput(result);
-                    handleSend(result);
-                }
-            };
-            Voice.onSpeechError = (e) => {
-                console.error("Speech error:", e);
-                Alert.alert("Speech Error", "Microphone access or recognition failed.");
-            };
-        } catch (err) {
-            console.warn("Voice initialization failed:", err);
-            voiceAvailable = false;
-        }
-    };
-
-    setupVoice();
-
-    return () => {
-        if (voiceAvailable) {
+        const requestPermissions = async () => {
             try {
-                Voice.removeAllListeners();
-                Voice.destroy();
+                const { status, granted } = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+                if (!granted) {
+                    Alert.alert("Permission Required", "Microphone permission is needed for voice input.");
+                }
             } catch (err) {
-                console.warn("Voice cleanup error:", err);
+                console.warn("Permission request failed:", err);
             }
+        };
+
+        requestPermissions();
+    }, []);
+
+    // Listen for speech recognition results
+    useSpeechRecognitionEvent("result", (event) => {
+        const transcript = event.results[0]?.transcript;
+        if (transcript) {
+            lastTranscriptRef.current = transcript; // Store in ref for auto-send
+            setInput(transcript);
         }
-    };
-    }, []); 
+    });
+
+    // Listen for speech recognition end - automatically send the message
+    useSpeechRecognitionEvent("end", () => {
+        setIsListening(false);
+        
+        // Send the last transcript automatically
+        const transcript = lastTranscriptRef.current;
+        if (transcript.trim()) {
+            console.log("Auto-sending transcript:", transcript);
+            handleSend(transcript);
+            lastTranscriptRef.current = ""; // Clear after sending
+            setInput(""); // Clear the input field
+        }
+    });
+
+    // Listen for errors
+    useSpeechRecognitionEvent("error", (event) => {
+        console.error("Speech error:", event.error);
+        setIsListening(false);
+        
+        // Ignore "no-speech" error - it's normal when user doesn't speak
+        if (event.error === "no-speech") {
+            console.log("No speech detected - user didn't speak");
+            return;
+        }
+        
+        // Only show alert for actual errors
+        Alert.alert("Speech Error", `Microphone error: ${event.error}`);
+    }); 
 
     const handleSend = async (textToSend: string = input) => {
         const text = textToSend.trim();
@@ -129,19 +152,33 @@ export default function AIChat() {
     const handleVoiceInput = async () => {
         try {
             if (isListening) {
-                await Voice.stop();
-                setIsListening(false); 
+                // Stop listening - the "end" event listener will automatically send the message
+                ExpoSpeechRecognitionModule.stop();
             } else {
+                // Stop any ongoing speech
                 if (await Speech.isSpeakingAsync()) {
                     await Speech.stop();
                 }
-                setInput(""); 
-                await Voice.start('en-US'); 
+                
+                setInput("");
+                setIsListening(true);
+                
+                // Start listening
+                ExpoSpeechRecognitionModule.start({
+                    lang: "en-US",
+                    interimResults: true,
+                    maxAlternatives: 1,
+                    continuous: false,
+                    requiresOnDeviceRecognition: false,
+                });
             }
         } catch (e) {
             console.error('Voice Start/Stop Error:', e);
             setIsListening(false);
-            Alert.alert("Microphone Error", "Microphone failed to start. Ensure permissions are granted for this app and you are using a custom development build (not Expo Go).");
+            Alert.alert(
+                "Microphone Error",
+                "Microphone failed to start. Ensure permissions are granted for this app."
+            );
         }
     };
     

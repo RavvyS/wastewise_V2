@@ -2,17 +2,15 @@
 
 import Constants from "expo-constants";
 
-// Get the backend API URL from environment variables or fallback to your LAN IP
+// Get the backend API URL from environment variables or fallback to Android emulator address
 const API_URL =
-  process.env.EXPO_PUBLIC_API_URL ||
-  Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
-  "http://192.168.8.189:8001"; 
+  process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:5001"; 
 
-if (API_URL === "http://192.168.8.189:8001") {
-  console.warn(
-    "⚠️ WARNING: Using default API URL. " +
-      "Set 'EXPO_PUBLIC_API_URL' in your .env file to your backend server address."
-  );
+if (!process.env.EXPO_PUBLIC_API_URL) {
+  console.warn(
+    "⚠️ WARNING: EXPO_PUBLIC_API_URL not set in .env file. " +
+      "Using fallback: http://10.0.2.2:5001"
+  );
 }
 
 interface ChatResponse {
@@ -42,9 +40,11 @@ export async function chatWithEcoZen(userInput: string): Promise<string> {
       throw new Error(errorData.error || errorData.message || `Backend returned status ${response.status}`);
     }
 
-    // Parse successful response
-    const data = (await response.json()) as ChatResponse;
-    return data.response || "Sorry, I couldn't understand that.";
+    // Parse successful response
+    const result = await response.json();
+    // Handle both formats: { response: "..." } and { data: { response: "..." } }
+    const data = result.data || result;
+    return data.response || "Sorry, I couldn't understand that.";
 
   } catch (error: any) {
     console.error("❌ Error talking to backend:", error);
