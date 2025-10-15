@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    name: "EcoZen AI",
+    name: "EcoZen",
     slug: "ecozen-ai",
     version: "1.0.0",
     projectId: "7959843a-4deb-4b60-addc-3a69ce71882d",
@@ -9,29 +9,30 @@ module.exports = {
     scheme: "ecozen",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
-    description: "Learn. Separate. Recycle. - AI-powered waste separation education and recycling guidance.",
+    description:
+      "Learn. Separate. Recycle. - AI-powered waste separation education and recycling guidance.",
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
     },
     android: {
       adaptiveIcon: {
         backgroundColor: "#1B4A5C",
         foregroundImage: "./assets/images/android-icon-foreground.png",
         backgroundImage: "./assets/images/android-icon-background.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png"
+        monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
       package: "com.ecozen.ai",
       config: {
         googleMaps: {
-          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY
-        }
-      }
+          apiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+        },
+      },
     },
     web: {
       output: "static",
-      favicon: "./assets/images/logo.png"
+      favicon: "./assets/images/logo.png",
     },
     plugins: [
       "expo-router",
@@ -43,23 +44,27 @@ module.exports = {
           resizeMode: "contain",
           backgroundColor: "#F8F9FA",
           dark: {
-            backgroundColor: "#1B4A5C"
-          }
-        }
+            backgroundColor: "#1B4A5C",
+          },
+        },
       ],
       [
         "expo-notifications",
         {
           sounds: [],
-          icon: "./assets/images/icon.png"
-        }
+          icon: "./assets/images/logo.png",
+        },
       ],
-      "expo-web-browser"
+      "expo-web-browser",
     ],
     experiments: {
       typedRoutes: true,
-      reactCompiler: true
-    }
-  }
+      reactCompiler: true,
+    },
+    extra: {
+      eas: {
+        projectId: "7959843a-4deb-4b60-addc-3a69ce71882d",
+      },
+    },
+  },
 };
-
