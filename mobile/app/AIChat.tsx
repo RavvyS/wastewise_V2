@@ -16,8 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Speech from "expo-speech";
 import Voice from '@react-native-community/voice'; 
 
-// ✅ Import the working AI service
-import { GeminiService, GeminiChatMessage } from "../utils/gemini";
+// ✅ Use the simple fetch service that talks to the Node.js backend
+// NOTE: Assuming this file is located at ./services/EcoZenAI.ts
+import { chatWithEcoZen } from "../services/EcoZenAI"; 
 
 interface Message {
     id: number;
@@ -28,7 +29,7 @@ interface Message {
 export default function AIChat() {
     const router = useRouter();
     const [messages, setMessages] = useState<Message[]>([]);
-    const [conversationHistory, setConversationHistory] = useState<GeminiChatMessage[]>([]);
+    // NOTE: Removed: const [conversationHistory, setConversationHistory] = useState<GeminiChatMessage[]>([]); 
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -39,7 +40,7 @@ export default function AIChat() {
     useEffect(() => {
         const welcomeMsg: Message = {
             id: Date.now(),
-            text: GeminiService.getWelcomeMessage(),
+            text: "Hi there! I'm EcoZen AI. Ask me anything about sustainability, recycling, or waste management!",
             sender: 'ai'
         };
         setMessages([welcomeMsg]);
@@ -47,43 +48,43 @@ export default function AIChat() {
     
     // --- SETUP VOICE EVENT LISTENERS ---
     useEffect(() => {
-  let voiceAvailable = true;
+    let voiceAvailable = true;
 
-  const setupVoice = async () => {
-    try {
-      await Voice.isAvailable(); // just to ensure it loads
-      Voice.onSpeechStart = () => setIsListening(true);
-      Voice.onSpeechEnd = () => setIsListening(false);
-      Voice.onSpeechResults = (e) => {
-        if (e.value?.length) {
-          const result = e.value[0];
-          setInput(result);
-          handleSend(result);
+    const setupVoice = async () => {
+        try {
+            await Voice.isAvailable(); // just to ensure it loads
+            Voice.onSpeechStart = () => setIsListening(true);
+            Voice.onSpeechEnd = () => setIsListening(false);
+            Voice.onSpeechResults = (e) => {
+                if (e.value?.length) {
+                    const result = e.value[0];
+                    setInput(result);
+                    handleSend(result);
+                }
+            };
+            Voice.onSpeechError = (e) => {
+                console.error("Speech error:", e);
+                Alert.alert("Speech Error", "Microphone access or recognition failed.");
+            };
+        } catch (err) {
+            console.warn("Voice initialization failed:", err);
+            voiceAvailable = false;
         }
-      };
-      Voice.onSpeechError = (e) => {
-        console.error("Speech error:", e);
-        Alert.alert("Speech Error", "Microphone access or recognition failed.");
-      };
-    } catch (err) {
-      console.warn("Voice initialization failed:", err);
-      voiceAvailable = false;
-    }
-  };
+    };
 
-  setupVoice();
+    setupVoice();
 
-  return () => {
-    if (voiceAvailable) {
-      try {
-        Voice.removeAllListeners();
-        Voice.destroy();
-      } catch (err) {
-        console.warn("Voice cleanup error:", err);
-      }
-    }
-  };
-}, []); 
+    return () => {
+        if (voiceAvailable) {
+            try {
+                Voice.removeAllListeners();
+                Voice.destroy();
+            } catch (err) {
+                console.warn("Voice cleanup error:", err);
+            }
+        }
+    };
+    }, []); 
 
     const handleSend = async (textToSend: string = input) => {
         const text = textToSend.trim();
@@ -96,32 +97,15 @@ export default function AIChat() {
         const userMessage: Message = { id: Date.now(), text: text, sender: 'user' };
         setMessages(prev => [...prev, userMessage]);
         
-        // Add to conversation history
-        const userHistoryMsg: GeminiChatMessage = {
-            role: 'user',
-            content: text,
-            timestamp: new Date()
-        };
-        const updatedHistory = [...conversationHistory, userHistoryMsg];
-        setConversationHistory(updatedHistory);
-        
         setInput(""); 
         setIsLoading(true);
 
         try {
-            // ✅ Call the working GeminiService
-            const aiText = await GeminiService.chatWithEcoZen(text, updatedHistory); 
+            // This calls the simple fetch service which talks to the secure Node.js backend
+            const aiText = await chatWithEcoZen(text); 
 
             const aiMessage: Message = { id: Date.now() + 1, text: aiText, sender: 'ai' };
             setMessages(prev => [...prev, aiMessage]);
-
-            // Add AI response to conversation history
-            const aiHistoryMsg: GeminiChatMessage = {
-                role: 'assistant',
-                content: aiText,
-                timestamp: new Date()
-            };
-            setConversationHistory(prev => [...prev, aiHistoryMsg]);
 
             Speech.speak(aiText, {
                 language: 'en-US',
@@ -133,7 +117,7 @@ export default function AIChat() {
             console.error('Chat error:', error);
             const errorMessage: Message = { 
                 id: Date.now() + 1, 
-                text: "Sorry, I am having trouble connecting to EcoZen AI right now. Please check your connection.", 
+                text: "Sorry, I am having trouble connecting to EcoZen AI right now. Please check your connection and ensure your backend server is running.", 
                 sender: 'ai' 
             };
             setMessages(prev => [...prev, errorMessage]);
@@ -157,7 +141,7 @@ export default function AIChat() {
         } catch (e) {
             console.error('Voice Start/Stop Error:', e);
             setIsListening(false);
-            Alert.alert("Microphone Error", "Microphone failed to start. Ensure permissions are granted for this app.");
+            Alert.alert("Microphone Error", "Microphone failed to start. Ensure permissions are granted for this app and you are using a custom development build (not Expo Go).");
         }
     };
     
@@ -197,6 +181,13 @@ export default function AIChat() {
                 contentContainerStyle={styles.chatContent}
                 ref={scrollViewRef}
             >
+                {messages.length <= 1 && ( // Show welcome only if only the initial message exists
+                    <View style={styles.welcomeContainer}>
+                        <Ionicons name="leaf" size={48} color="#67A859" />
+                        <Text style={styles.welcomeText}>Hi there! I'm EcoZen AI.</Text>
+                        <Text style={styles.welcomeSubtitle}>Ask me anything about sustainability, recycling, or waste management!</Text>
+                    </View>
+                )}
                 {messages.map(renderMessage)}
                 {isLoading && (
                     <View style={[styles.messageBubble, styles.aiBubble]}>
