@@ -3,6 +3,7 @@ module.exports = {
     name: "EcoZen AI",
     slug: "ecozen-ai",
     version: "1.0.0",
+    projectId: "7959843a-4deb-4b60-addc-3a69ce71882d",
     orientation: "portrait",
     icon: "./assets/images/logo.png",
     scheme: "ecozen",
