@@ -35,6 +35,16 @@ module.exports = {
     plugins: [
       "expo-router",
       [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission: "Allow EcoZen AI to use your location to notify you about nearby recycling centers.",
+          locationAlwaysPermission: "Allow EcoZen AI to use your location in the background to notify you about nearby recycling centers.",
+          locationWhenInUsePermission: "Allow EcoZen AI to use your location to find nearby recycling centers.",
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           image: "./assets/images/logo.png",
