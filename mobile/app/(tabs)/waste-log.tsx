@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import useNotifications from "../../hooks/useNotifications";
 import {
   apiGet,
   apiPost,
@@ -70,6 +71,15 @@ export default function WasteLogScreen() {
 
   // Mock user ID - In real app, this would come from auth context
   const currentUserId = 1;
+
+  // Initialize notifications
+  const {
+    notifyWasteLogCreated,
+    notifyWasteLogUpdated,
+    notifyWasteLogDeleted,
+    notifyMilestoneReached,
+    notifyDailyGoalAchieved,
+  } = useNotifications();
 
   useEffect(() => {
     loadData();
@@ -156,10 +166,22 @@ export default function WasteLogScreen() {
         // Update existing log
         await apiPut(`${API_ENDPOINTS.LOGS}/${editingLog.id}`, logData);
         Alert.alert("Success", "Log updated successfully!");
+
+        // Send notification for log update
+        await notifyWasteLogUpdated(
+          customDescription.trim(),
+          parseInt(quantity) || 1
+        );
       } else {
         // Create new log
         await apiPost(API_ENDPOINTS.LOGS, logData);
         Alert.alert("Success", "Log added successfully!");
+
+        // Send notification for new log
+        await notifyWasteLogCreated(
+          customDescription.trim(),
+          parseInt(quantity) || 1
+        );
       }
 
       setModalVisible(false);
@@ -183,7 +205,7 @@ export default function WasteLogScreen() {
     }
   };
 
-  const deleteLog = async (logId: number) => {
+  const deleteLog = async (logId: number, logDescription?: string) => {
     Alert.alert(
       "Delete Log",
       "Are you sure you want to delete this log entry?",
@@ -196,6 +218,10 @@ export default function WasteLogScreen() {
             try {
               await apiDelete(`${API_ENDPOINTS.LOGS}/${logId}`);
               Alert.alert("Success", "Log deleted successfully!");
+
+              // Send notification for log deletion
+              await notifyWasteLogDeleted(logDescription || "Waste log entry");
+
               await loadData();
             } catch (error) {
               Alert.alert("Error", "Failed to delete log. Please try again.");
@@ -249,37 +275,36 @@ export default function WasteLogScreen() {
         {/* Stats Cards */}
         {stats && (
           <View style={styles.statsContainer}>
-            <View style={[styles.statCard, { borderLeftColor: "#4CAF50" }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name="leaf" size={24} color="#4CAF50" />
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="leaf" size={28} color="#4CAF50" />
               </View>
-              <View style={styles.statContent}>
-                <Text style={styles.statNumber}>{stats.totalQuantity}kg</Text>
-                <Text style={styles.statLabel}>Total Recycled</Text>
-              </View>
+              <Text style={styles.statNumber}>
+                {stats.totalQuantity}
+                <Text style={styles.statUnit}>kg</Text>
+              </Text>
+              <Text style={styles.statLabel}>Total Recycled</Text>
             </View>
-            <View style={[styles.statCard, { borderLeftColor: "#2196F3" }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name="list" size={24} color="#2196F3" />
+
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="list" size={28} color="#2196F3" />
               </View>
-              <View style={styles.statContent}>
-                <Text style={styles.statNumber}>{stats.totalLogs}</Text>
-                <Text style={styles.statLabel}>Total Entries</Text>
-              </View>
+              <Text style={styles.statNumber}>{stats.totalLogs}</Text>
+              <Text style={styles.statLabel}>Total Entries</Text>
             </View>
-            <View style={[styles.statCard, { borderLeftColor: "#FF9800" }]}>
-              <View style={styles.statIcon}>
-                <Ionicons name="trending-up" size={24} color="#FF9800" />
+
+            <View style={styles.statCard}>
+              <View style={styles.statIconContainer}>
+                <Ionicons name="trending-up" size={28} color="#FF9800" />
               </View>
-              <View style={styles.statContent}>
-                <Text style={styles.statNumber}>
-                  {Math.round(
-                    (stats.totalQuantity / Math.max(stats.totalLogs, 1)) * 10
-                  ) / 10}
-                  kg
-                </Text>
-                <Text style={styles.statLabel}>Avg per Entry</Text>
-              </View>
+              <Text style={styles.statNumber}>
+                {Math.round(
+                  (stats.totalQuantity / Math.max(stats.totalLogs, 1)) * 10
+                ) / 10}
+                <Text style={styles.statUnit}>kg</Text>
+              </Text>
+              <Text style={styles.statLabel}>Avg per Entry</Text>
             </View>
           </View>
         )}
@@ -348,7 +373,7 @@ export default function WasteLogScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionButton, styles.deleteButton]}
-                      onPress={() => deleteLog(log.id)}
+                      onPress={() => deleteLog(log.id, log.description)}
                     >
                       <Ionicons
                         name="trash-outline"
@@ -378,14 +403,19 @@ export default function WasteLogScreen() {
         transparent={true}
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
+        presentationStyle="overFullScreen"
       >
-        <View style={styles.modalOverlay}>
+        <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
                 {editingLog ? "Edit Log Entry" : "Add Log Entry"}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
@@ -497,12 +527,12 @@ export default function WasteLogScreen() {
                 disabled={saving}
               >
                 <Text style={styles.saveButtonText}>
-                  {saving ? "Saving..." : (editingLog ? "Update" : "Save")}
+                  {saving ? "Saving..." : editingLog ? "Update" : "Save"}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -528,7 +558,7 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    paddingBottom: 10,
+    paddingBottom: 16,
   },
   headerTitle: {
     fontSize: 28,
@@ -538,43 +568,52 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 16,
     color: "#666",
-    marginTop: 4,
+    marginTop: 6,
   },
   statsContainer: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+    gap: 12,
   },
   statCard: {
     backgroundColor: "white",
-    borderRadius: 12,
-    flexDirection: "row",
+    borderRadius: 16,
+    flex: 1,
+    padding: 20,
     alignItems: "center",
-    flex: 1,
-    marginHorizontal: 4,
-    padding: 16,
-    borderLeftWidth: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    minHeight: 120,
+    justifyContent: "center",
   },
-  statIcon: {
-    marginRight: 12,
-  },
-  statContent: {
-    flex: 1,
+  statIconContainer: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 50,
+    padding: 12,
+    marginBottom: 12,
   },
   statNumber: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "800",
     color: "#333",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  statUnit: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: "#666",
-    marginTop: 2,
+    fontWeight: "500",
+    textAlign: "center",
+    lineHeight: 16,
   },
   addButtonContainer: {
     paddingHorizontal: 20,
@@ -724,31 +763,52 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "90%",
+    maxHeight: "95%",
+    minHeight: "80%",
+    flex: 1,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ddd",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
+    paddingTop: 25,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+    backgroundColor: "white",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#333",
+    letterSpacing: 0.5,
   },
   modalForm: {
     flex: 1,
     padding: 20,
+    paddingBottom: 10,
+    paddingTop: 10,
   },
   formLabel: {
     fontSize: 16,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 8,
-    marginTop: 16,
+    marginBottom: 12,
+    marginTop: 20,
   },
   categoryGrid: {
     flexDirection: "row",
@@ -756,16 +816,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryCard: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     marginRight: 8,
     marginBottom: 8,
+    backgroundColor: "#f8f9fa",
+    minWidth: 80,
+    alignItems: "center",
   },
   selectedCategoryCard: {
     borderColor: "#4CAF50",
     backgroundColor: "#E8F5E8",
+    shadowColor: "#4CAF50",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
   categoryName: {
     fontSize: 14,
@@ -801,20 +872,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   textInput: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     textAlignVertical: "top",
+    backgroundColor: "#fafafa",
+    minHeight: 50,
   },
   quantityInput: {
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
-    width: 100,
+    width: 120,
+    backgroundColor: "#fafafa",
+    textAlign: "center",
   },
   instructionsCard: {
     backgroundColor: "#FFF8E1",
@@ -836,33 +911,44 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     padding: 20,
+    paddingBottom: 35,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
+    backgroundColor: "white",
+    gap: 12,
   },
   cancelButton: {
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
+    padding: 18,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: "#ddd",
     alignItems: "center",
-    marginRight: 8,
+    backgroundColor: "#f8f9fa",
   },
   cancelButtonText: {
     fontSize: 16,
+    fontWeight: "600",
     color: "#666",
   },
   saveButton: {
     flex: 1,
-    padding: 16,
-    borderRadius: 8,
+    padding: 18,
+    borderRadius: 12,
     backgroundColor: "#4CAF50",
     alignItems: "center",
-    marginLeft: 8,
+    shadowColor: "#4CAF50",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "white",
   },
   disabledButton: {

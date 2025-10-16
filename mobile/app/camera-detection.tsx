@@ -17,6 +17,7 @@ import { router } from "expo-router";
 import * as MediaLibrary from "expo-media-library";
 import { GeminiService } from "../utils/gemini";
 import { Colors } from "../constants/Colors";
+import { useNotifications } from "../hooks/useNotifications";
 
 const { width, height } = Dimensions.get("window");
 
@@ -40,6 +41,8 @@ export default function CameraDetectionScreen() {
     useState<DetectionResult | null>(null);
   const [capturedImage, setCapturedImage] = useState<any>(null);
   const cameraRef = useRef<CameraView>(null);
+  const { notifyObjectDetectionSuccess, notifyObjectDetectionFailure } =
+    useNotifications();
 
   useEffect(() => {
     // Request permissions on mount
@@ -114,6 +117,9 @@ export default function CameraDetectionScreen() {
           ? "No recycling symbol found. Try positioning the camera closer to the ♻️ symbol with better lighting."
           : response.error;
 
+        // Send failure notification
+        await notifyObjectDetectionFailure();
+
         Alert.alert("No Recycling Symbol Found", message, [
           { text: "Tips", onPress: showDetectionTips },
           { text: "Try Again", onPress: resetCamera },
@@ -121,9 +127,18 @@ export default function CameraDetectionScreen() {
       } else {
         setDetectionResult(response);
         setShowResult(true);
+
+        // Send success notification
+        await notifyObjectDetectionSuccess(
+          response.materialType || response.detectedSymbol || "Unknown item"
+        );
       }
     } catch (error) {
       console.error("Camera error:", error);
+
+      // Send failure notification for errors
+      await notifyObjectDetectionFailure();
+
       Alert.alert(
         "Detection Error",
         "Failed to analyze image. Make sure you have good lighting and the recycling symbol is clearly visible.",
@@ -316,12 +331,17 @@ export default function CameraDetectionScreen() {
         animationType="slide"
         transparent={true}
         onRequestClose={closeResult}
+        presentationStyle="overFullScreen"
       >
-        <View style={styles.modalOverlay}>
+        <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Detection Result</Text>
-              <TouchableOpacity onPress={closeResult}>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={closeResult}
+              >
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
             </View>
@@ -337,7 +357,7 @@ export default function CameraDetectionScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </SafeAreaView>
   );
@@ -501,20 +521,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "80%",
+    maxHeight: "95%",
+    minHeight: "80%",
+    flex: 1,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ddd",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 5,
+  },
+  closeButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
+    paddingTop: 25,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+    backgroundColor: "white",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#333",
+    letterSpacing: 0.5,
   },
   resultContainer: {
     flex: 1,
@@ -589,19 +628,29 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     padding: 20,
+    paddingBottom: 35,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
+    backgroundColor: "white",
   },
   tryAgainButton: {
     backgroundColor: "#FF5722",
-    paddingVertical: 15,
-    borderRadius: 10,
+    paddingVertical: 18,
+    borderRadius: 12,
     alignItems: "center",
+    shadowColor: "#FF5722",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   tryAgainText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   tipButton: {
     backgroundColor: "rgba(255, 255, 255, 0.25)",

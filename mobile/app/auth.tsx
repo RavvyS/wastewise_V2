@@ -17,6 +17,7 @@ import { router } from "expo-router";
 import { signup, login, getCurrentUser } from "../utils/api";
 import { EcoZenLogo } from "../components/EcoZenLogo";
 import { Colors } from "../constants/Colors";
+import { useNotifications } from "../hooks/useNotifications";
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -29,6 +30,7 @@ export default function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const { notifyUserLogin, notifyUserRegistration } = useNotifications();
 
   const handleAuth = async () => {
     if (!email.trim() || !password.trim()) {
@@ -72,6 +74,10 @@ export default function AuthScreen() {
         }`;
 
         console.log("✅ Login successful:", response);
+
+        // Send login notification
+        await notifyUserLogin(response.user.name);
+
         console.log("🚀 Navigating to home screen...");
 
         // Navigate immediately after successful login
@@ -130,6 +136,9 @@ export default function AuthScreen() {
         });
         const response = await signup(signupData);
         console.log("✅ Signup successful:", response);
+
+        // Send registration notification
+        await notifyUserRegistration(name.trim());
 
         // Clear form and switch to login mode after successful registration
         setIsLogin(true);
@@ -225,7 +234,11 @@ export default function AuthScreen() {
               style={styles.backButton}
               onPress={() => router.push("/welcome" as any)}
             >
-              <Ionicons name="chevron-back" size={24} color={Colors.textSecondary} />
+              <Ionicons
+                name="chevron-back"
+                size={24}
+                color={Colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
 
@@ -471,7 +484,11 @@ export default function AuthScreen() {
               onPress={() => router.push("/(tabs)")}
             >
               <Text style={styles.guestButtonText}>Continue as Guest</Text>
-              <Ionicons name="arrow-forward" size={16} color={Colors.textSecondary} />
+              <Ionicons
+                name="arrow-forward"
+                size={16}
+                color={Colors.textSecondary}
+              />
             </TouchableOpacity>
           </View>
         </ScrollView>
