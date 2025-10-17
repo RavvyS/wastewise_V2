@@ -9,4 +9,6 @@ export const ENV = {
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET:
     process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production",
+  GEMINI_API_KEY:
+    process.env.GEMINI_API_KEY || "AIzaSyAwvs6mKKpxMBRUjId6qlBUyzCuI432LXc",
 };
