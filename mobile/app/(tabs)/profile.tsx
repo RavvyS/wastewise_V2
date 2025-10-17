@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -13,7 +13,8 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { logout } from "../../utils/api";
+import { logout, getCurrentUser } from "../../utils/api";
+import { useNotifications } from "../../hooks/useNotifications";
 
 interface UserProfile {
   name: string;
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const [settingsModalVisible, setSettingsModalVisible] = useState(false);
   const [achievementsModalVisible, setAchievementsModalVisible] =
     useState(false);
+  const { notifyUserLogout, notifyProfileUpdate } = useNotifications();
 
   // User profile state
   const [userProfile, setUserProfile] = useState<UserProfile>({
@@ -55,6 +57,28 @@ export default function ProfileScreen() {
     level: 5,
     points: 1250,
   });
+
+  // User role state - default 'user', can be 'admin'
+  const [userRole, setUserRole] = useState<"user" | "manager" | "admin">(
+    "user"
+  );
+
+  // Fetch current user data on mount
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          setUserRole(user.role || "user");
+          // You can also update userProfile here if needed
+          console.log("👤 User role:", user.role);
+        }
+      } catch (error) {
+        console.log("ℹ️ Could not fetch user data, using defaults");
+      }
+    };
+    fetchUser();
+  }, []);
 
   // Settings state
   const [settings, setSettings] = useState<Setting[]>([
@@ -189,100 +213,103 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Sign Out",
-          style: "destructive",
-          onPress: async () => {
-            console.log("🚪 User confirmed sign out - starting logout process...");
-            
-            try {
-              // Step 1: Clear authentication token
-              console.log("🗑️ Clearing authentication token...");
-              logout();
-              console.log("✅ Token cleared successfully");
-              
-              // Step 2: Navigate to auth screen immediately
-              console.log("🔄 Attempting navigation to auth screen...");
-              
-              // Use setTimeout to ensure state updates are processed
-              setTimeout(() => {
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          console.log(
+            "🚪 User confirmed sign out - starting logout process..."
+          );
+
+          try {
+            // Send logout notification
+            await notifyUserLogout();
+
+            // Step 1: Clear authentication token
+            console.log("🗑️ Clearing authentication token...");
+            logout();
+            console.log("✅ Token cleared successfully");
+
+            // Step 2: Navigate to auth screen immediately
+            console.log("🔄 Attempting navigation to auth screen...");
+
+            // Use setTimeout to ensure state updates are processed
+            setTimeout(() => {
+              try {
+                console.log("� Executing router.replace('/auth')...");
+                router.replace("/auth");
+                console.log("✅ Primary navigation successful");
+              } catch (replaceError) {
+                console.error("❌ Replace navigation failed:", replaceError);
+
+                // Fallback 1: Try push navigation
                 try {
-                  console.log("� Executing router.replace('/auth')...");
-                  router.replace("/auth");
-                  console.log("✅ Primary navigation successful");
-                } catch (replaceError) {
-                  console.error("❌ Replace navigation failed:", replaceError);
-                  
-                  // Fallback 1: Try push navigation
+                  console.log("🔄 Trying fallback push navigation...");
+                  router.push("/auth");
+                  console.log("✅ Push navigation successful");
+                } catch (pushError) {
+                  console.error("❌ Push navigation failed:", pushError);
+
+                  // Fallback 2: Try navigate
                   try {
-                    console.log("🔄 Trying fallback push navigation...");
-                    router.push("/auth");
-                    console.log("✅ Push navigation successful");
-                  } catch (pushError) {
-                    console.error("❌ Push navigation failed:", pushError);
-                    
-                    // Fallback 2: Try navigate
-                    try {
-                      console.log("🔄 Trying navigate fallback...");
-                      router.navigate("/auth");
-                      console.log("✅ Navigate fallback successful");
-                    } catch (navigateError) {
-                      console.error("❌ All navigation methods failed:", navigateError);
-                      
-                      // Final fallback: Show manual instruction
-                      Alert.alert(
-                        "Signed Out",
-                        "You have been signed out successfully. Please manually navigate to the login screen.",
-                        [
-                          {
-                            text: "Go to Login",
-                            onPress: () => {
-                              // Force navigation with delay
-                              setTimeout(() => {
-                                router.replace("/auth");
-                              }, 100);
-                            }
-                          }
-                        ]
-                      );
-                    }
+                    console.log("🔄 Trying navigate fallback...");
+                    router.navigate("/auth");
+                    console.log("✅ Navigate fallback successful");
+                  } catch (navigateError) {
+                    console.error(
+                      "❌ All navigation methods failed:",
+                      navigateError
+                    );
+
+                    // Final fallback: Show manual instruction
+                    Alert.alert(
+                      "Signed Out",
+                      "You have been signed out successfully. Please manually navigate to the login screen.",
+                      [
+                        {
+                          text: "Go to Login",
+                          onPress: () => {
+                            // Force navigation with delay
+                            setTimeout(() => {
+                              router.replace("/auth");
+                            }, 100);
+                          },
+                        },
+                      ]
+                    );
                   }
                 }
-              }, 100);
-              
-            } catch (error) {
-              console.error("❌ Critical error during sign out:", error);
-              Alert.alert(
-                "Sign Out Error", 
-                "An error occurred during sign out. Please restart the app.",
-                [
-                  {
-                    text: "OK",
-                    onPress: () => {
-                      // Still try to navigate to auth screen
-                      router.replace("/auth");
-                    }
-                  }
-                ]
-              );
-            }
-          },
+              }
+            }, 100);
+          } catch (error) {
+            console.error("❌ Critical error during sign out:", error);
+            Alert.alert(
+              "Sign Out Error",
+              "An error occurred during sign out. Please restart the app.",
+              [
+                {
+                  text: "OK",
+                  onPress: () => {
+                    // Still try to navigate to auth screen
+                    router.replace("/auth");
+                  },
+                },
+              ]
+            );
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleShareApp = () => {
     Alert.alert(
-      "Share EcoSeparate",
+      "Share ECOZEN",
       "Help your friends join the eco-friendly movement!",
       [
         {
@@ -295,7 +322,7 @@ export default function ProfileScreen() {
             // In a real app, you would use React Native Share API
             Alert.alert(
               "Share App",
-              "Share link: https://ecoseparate.app\n\nJoin me on EcoSeparate - the best way to track your recycling and help the environment! 🌱"
+              "Share link: https://ecozen.app\n\nJoin me on ECOZEN - the best way to track your recycling and help the environment! 🌱"
             );
           },
         },
@@ -399,18 +426,48 @@ export default function ProfileScreen() {
               <Ionicons name="settings" size={24} color="#666" />
               <Text style={styles.quickActionText}>Settings</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+
+            {/* Show "Send Inquiry" only for regular users */}
+            {userRole === "user" && (
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() =>
+                  router.push("/screens/inquiries/InquiriesScreen")
+                }
+              >
+                <Ionicons name="send" size={24} color="#4CAF50" />
+                <Text style={styles.quickActionText}>Send Inquiry</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Show "Answer Inquiries" only for admins */}
+            {userRole === "admin" && (
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() =>
+                  router.push("/screens/inquiries/AnswerInquiriesScreen")
+                }
+              >
+                <Ionicons name="mail" size={24} color="#2196F3" />
+                <Text style={styles.quickActionText}>Answer Inquiries</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
               style={styles.quickActionButton}
               onPress={handleShareApp}
             >
-              <Ionicons name="share" size={24} color="#2196F3" />
+              <Ionicons name="share" size={24} color="#FF9800" />
               <Text style={styles.quickActionText}>Share App</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.quickActionButton}
-              onPress={() => {
+              onPress={async () => {
                 // Simple direct sign out - no confirmation
                 console.log("🚪 Sign out button pressed - executing logout...");
+
+                // Send logout notification
+                await notifyUserLogout();
+
                 logout();
                 console.log("🔄 Navigating to auth page...");
                 router.replace("/auth");
@@ -465,9 +522,11 @@ export default function ProfileScreen() {
         transparent={true}
         visible={editModalVisible}
         onRequestClose={() => setEditModalVisible(false)}
+        presentationStyle="overFullScreen"
       >
-        <View style={styles.modalOverlay}>
+        <SafeAreaView style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Profile</Text>
               <TouchableOpacity onPress={() => setEditModalVisible(false)}>
@@ -539,7 +598,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
       {/* Settings Modal */}
@@ -922,20 +981,34 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: "90%",
+    maxHeight: "95%",
+    minHeight: "80%",
+    flex: 1,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ddd",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginTop: 8,
+    marginBottom: 5,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     padding: 20,
+    paddingTop: 25,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+    backgroundColor: "white",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#333",
+    letterSpacing: 0.5,
   },
   modalForm: {
     flex: 1,
