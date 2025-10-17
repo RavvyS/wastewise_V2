@@ -5,11 +5,11 @@ import Constants from "expo-constants";
 const API_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.EXPO_PUBLIC_API_URL ||
-  "http://10.114.35.18:8001"; 
+  "http://10.0.2.2:5001"; 
 
 console.log("🔧 API_URL configured as:", API_URL);
 
-if (API_URL === "http://10.114.35.18:8001") {
+if (API_URL === "http://10.0.2.2:5001") {
   console.warn(
     "⚠️ WARNING: Using default API URL. " +
       "Set 'EXPO_PUBLIC_API_URL' in your .env file to your backend server address."
