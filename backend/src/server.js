@@ -1,11 +1,9 @@
-// server.js
-import 'dotenv/config';
 import { ENV } from "./config/env.js";
 import express from "express";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { db } from "./config/db.js";
+import { db } from "./config/db.js"; // <-- your drizzle db connection
 import {
   usersTable,
   wasteCategoriesTable,
@@ -18,33 +16,247 @@ import {
   wasteLogsTable,
 } from "./db/schema.js";
 import { eq } from "drizzle-orm";
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import geminiRouter from "./routes/gemini.js";
 
 const app = express();
 const PORT = ENV.PORT || 8001;
 
+// Middleware
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // Increase limit for image uploads
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ===== Middleware =====
+// Authentication middleware
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access token required" });
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
 
   jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
-    if (err) return res.status(403).json({ error: "Invalid or expired token" });
+    if (err) {
+      return res.status(403).json({ error: "Invalid or expired token" });
+    }
     req.user = user;
     next();
   });
 };
 
+/* ========== AUTHENTICATION ========== */
+
+// User Registration
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password, phone } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
+    }
+
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (existingUser.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user
+    const newUser = await db
+      .insert(usersTable)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+        phone: phone || null,
+        role: "user",
+        isActive: true,
+      })
+      .returning();
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: newUser[0].id,
+        email: newUser[0].email,
+        name: newUser[0].name,
+        role: newUser[0].role,
+      },
+      ENV.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = newUser[0];
+
+    res.status(201).json({
+      message: "User created successfully",
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (error) {
+    console.error("Signup error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// User Login
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Find user
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (users.length === 0) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    const user = users[0];
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(401).json({ error: "Account is disabled" });
+    }
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Invalid email or password" });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
+      ENV.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      message: "Login successful",
+      user: userWithoutPassword,
+      token,
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Get current user profile (protected route)
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.id));
+    if (users.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const { password, ...userWithoutPassword } = users[0];
+    res.json(userWithoutPassword);
+  } catch (error) {
+    console.error("Get profile error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Change password (protected route)
+app.put("/api/auth/change-password", authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res
+        .status(400)
+        .json({ error: "Current password and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "New password must be at least 6 characters long" });
+    }
+
+    // Get current user
+    const users = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, req.user.id));
+    if (users.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = users[0];
+
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(
+      currentPassword,
+      user.password
+    );
+    if (!isValidPassword) {
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password
+    await db
+      .update(usersTable)
+      .set({ password: hashedPassword })
+      .where(eq(usersTable.id, req.user.id));
+
+    res.json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change password error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Admin middleware
 const authenticateAdmin = (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
-  if (!token) return res.status(401).json({ error: "Access token required" });
+
+  if (!token) {
+    return res.status(401).json({ error: "Access token required" });
+  }
 
   jwt.verify(token, ENV.JWT_SECRET, (err, user) => {
     if (err) {
@@ -60,18 +272,68 @@ const authenticateAdmin = (req, res, next) => {
   });
 };
 
-// ===================================================================
-// 🧠 LEARNING HUB ROUTES
-// ===================================================================
-
-// --- Quizzes ---
-app.post("/api/quizzes", authenticateAdmin, async (req, res) => {
+// Admin signup (create admin users)
+app.post("/api/auth/admin-signup", authenticateAdmin, async (req, res) => {
   try {
-    const quiz = await db.insert(quizzesTable).values(req.body).returning();
-    res.json(quiz[0]);
-  } catch (err) {
-    console.error('BACKEND ERROR on POST /api/quizzes:', err);
-    res.status(500).json({ error: err.message });
+    const { name, email, password, phone, role } = req.body;
+
+    // Validation
+    if (!name || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Name, email, and password are required" });
+    }
+
+    if (!role || !["user", "manager", "admin"].includes(role)) {
+      return res
+        .status(400)
+        .json({ error: "Valid role is required (user, manager, admin)" });
+    }
+
+    if (password.length < 6) {
+      return res
+        .status(400)
+        .json({ error: "Password must be at least 6 characters long" });
+    }
+
+    // Check if user already exists
+    const existingUser = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.email, email));
+    if (existingUser.length > 0) {
+      return res
+        .status(400)
+        .json({ error: "User with this email already exists" });
+    }
+
+    // Hash password
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user with specified role
+    const newUser = await db
+      .insert(usersTable)
+      .values({
+        name,
+        email,
+        password: hashedPassword,
+        phone: phone || null,
+        role: role,
+        isActive: true,
+      })
+      .returning();
+
+    // Return user data without password
+    const { password: _, ...userWithoutPassword } = newUser[0];
+
+    res.status(201).json({
+      message: `${role} account created successfully`,
+      user: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error("Admin signup error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -294,62 +556,95 @@ app.post("/api/quizzes", async (req, res) => {
 });
 
 app.get("/api/quizzes", async (req, res) => {
-  try {
-    const quizzes = await db.select().from(quizzesTable);
-    res.json(quizzes);
-  } catch (err) {
-    console.error('BACKEND ERROR on GET /api/quizzes:', err);
-    res.status(500).json({ error: err.message });
-  }
+  const quizzes = await db.select().from(quizzesTable);
+  res.json(quizzes);
 });
 
-app.get("/api/quizzes/:id/full", async (req, res) => {
-  try {
-    const quizId = Number(req.params.id);
-    const quiz = await db.select().from(quizzesTable).where(eq(quizzesTable.id, quizId));
-    const questions = await db.select().from(quizQuestionsTable).where(eq(quizQuestionsTable.quizId, quizId));
-    if (quiz.length === 0) return res.status(404).json({ error: "Quiz not found" });
-    res.json({ ...quiz[0], questions });
-  } catch (err) {
-    console.error('BACKEND ERROR on GET /api/quizzes/:id/full:', err);
-    res.status(500).json({ error: err.message });
+// Get single quiz by ID with its questions
+app.get("/api/quizzes/:id", async (req, res) => {
+  const quiz = await db
+    .select()
+    .from(quizzesTable)
+    .where(eq(quizzesTable.id, Number(req.params.id)));
+  
+  if (quiz.length === 0) {
+    return res.status(404).json({ error: "Quiz not found" });
   }
+  
+  // Get questions for this quiz
+  const questions = await db
+    .select()
+    .from(quizQuestionsTable)
+    .where(eq(quizQuestionsTable.quizId, Number(req.params.id)));
+  
+  res.json({ ...quiz[0], questions });
 });
 
-app.put("/api/quizzes/:id", authenticateAdmin, async (req, res) => {
-  try {
-    const updated = await db.update(quizzesTable).set(req.body).where(eq(quizzesTable.id, Number(req.params.id))).returning();
-    res.json(updated[0]);
-  } catch (err) {
-    console.error('BACKEND ERROR on PUT /api/quizzes/:id:', err);
-    res.status(500).json({ error: err.message });
-  }
+app.put("/api/quizzes/:id", async (req, res) => {
+  const updated = await db
+    .update(quizzesTable)
+    .set(req.body)
+    .where(eq(quizzesTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
 });
 
-app.delete("/api/quizzes/:id", authenticateAdmin, async (req, res) => {
-  try {
-    await db.delete(quizzesTable).where(eq(quizzesTable.id, Number(req.params.id)));
-    res.json({ success: true });
-  } catch (err) {
-    console.error('BACKEND ERROR on DELETE /api/quizzes/:id:', err);
-    res.status(500).json({ error: err.message });
-  }
+app.delete("/api/quizzes/:id", async (req, res) => {
+  await db
+    .delete(quizzesTable)
+    .where(eq(quizzesTable.id, Number(req.params.id)));
+  res.json({ success: true });
 });
 
-// --- Articles ---
-app.post("/api/articles", authenticateAdmin, async (req, res) => {
-  try {
-    const art = await db.insert(articlesTable).values(req.body).returning();
-    res.json(art[0]);
-  } catch (err) {
-    console.error('BACKEND ERROR on POST /api/articles:', err);
-    res.status(500).json({ error: err.message });
-  }
+/* ========== QUIZ QUESTIONS ========== */
+app.post("/api/questions", async (req, res) => {
+  const q = await db.insert(quizQuestionsTable).values(req.body).returning();
+  res.json(q);
+});
+
+app.get("/api/questions", async (req, res) => {
+  const qs = await db.select().from(quizQuestionsTable);
+  res.json(qs);
+});
+
+app.put("/api/questions/:id", async (req, res) => {
+  const updated = await db
+    .update(quizQuestionsTable)
+    .set(req.body)
+    .where(eq(quizQuestionsTable.id, Number(req.params.id)))
+    .returning();
+  res.json(updated);
+});
+
+app.delete("/api/questions/:id", async (req, res) => {
+  await db
+    .delete(quizQuestionsTable)
+    .where(eq(quizQuestionsTable.id, Number(req.params.id)));
+  res.json({ success: true });
+});
+
+/* ========== ARTICLES ========== */
+app.post("/api/articles", async (req, res) => {
+  const art = await db.insert(articlesTable).values(req.body).returning();
+  res.json(art);
 });
 
 app.get("/api/articles", async (req, res) => {
   const arts = await db.select().from(articlesTable);
   res.json(arts);
+});
+
+// Get single article by ID
+app.get("/api/articles/:id", async (req, res) => {
+  const article = await db
+    .select()
+    .from(articlesTable)
+    .where(eq(articlesTable.id, Number(req.params.id)));
+  
+  if (article.length === 0) {
+    return res.status(404).json({ error: "Article not found" });
+  }
+  res.json(article[0]);
 });
 
 app.put("/api/articles/:id", async (req, res) => {
@@ -703,92 +998,108 @@ app.delete("/api/inquiries/:id", authenticateToken, async (req, res) => {
 /* ========== WASTE LOGS ========== */
 app.post("/api/logs", async (req, res) => {
   try {
-    const arts = await db.select().from(articlesTable);
-    res.json(arts);
-  } catch (err) {
-    console.error('BACKEND ERROR on GET /api/articles:', err);
-    res.status(500).json({ error: err.message });
+    const log = await db.insert(wasteLogsTable).values(req.body).returning();
+    res.json(log[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-app.put("/api/articles/:id", authenticateAdmin, async (req, res) => {
+app.get("/api/logs", async (req, res) => {
   try {
-    const updated = await db.update(articlesTable).set(req.body).where(eq(articlesTable.id, Number(req.params.id))).returning();
-    res.json(updated[0]);
-  } catch (err) {
-    console.error('BACKEND ERROR on PUT /api/articles/:id:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
+    const { userId } = req.query;
+    let logs;
 
-app.delete("/api/articles/:id", authenticateAdmin, async (req, res) => {
-  try {
-    await db.delete(articlesTable).where(eq(articlesTable.id, Number(req.params.id)));
-    res.json({ success: true });
-  } catch (err) {
-    console.error('BACKEND ERROR on DELETE /api/articles/:id:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// --- Public Learning Hub ---
-app.get("/api/learning-hub/quizzes", async (req, res) => {
-  try {
-    const quizzes = await db.select().from(quizzesTable);
-    res.json(quizzes);
-  } catch (err) {
-    console.error('BACKEND ERROR on GET /api/learning-hub/quizzes:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/learning-hub/articles", async (req, res) => {
-  try {
-    const articles = await db.select().from(articlesTable);
-    res.json(articles);
-  } catch (err) {
-    console.error('BACKEND ERROR on GET /api/learning-hub/articles:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ===================================================================
-// 💬 ECOZEN AI CHAT
-// ===================================================================
-app.post("/api/chat", async (req, res) => {
-  try {
-    const { message } = req.body;
-
-    if (!message || typeof message !== "string") {
-      return res.status(400).json({ error: "Message is required and must be a string" });
+    if (userId) {
+      logs = await db
+        .select({
+          id: wasteLogsTable.id,
+          description: wasteLogsTable.description,
+          quantity: wasteLogsTable.quantity,
+          createdAt: wasteLogsTable.createdAt,
+          itemName: wasteItemsTable.name,
+          categoryName: wasteCategoriesTable.name,
+          disposalInstructions: wasteItemsTable.disposalInstructions,
+        })
+        .from(wasteLogsTable)
+        .leftJoin(
+          wasteItemsTable,
+          eq(wasteLogsTable.itemId, wasteItemsTable.id)
+        )
+        .leftJoin(
+          wasteCategoriesTable,
+          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
+        )
+        .where(eq(wasteLogsTable.userId, Number(userId)))
+        .orderBy(wasteLogsTable.createdAt);
+    } else {
+      logs = await db
+        .select({
+          id: wasteLogsTable.id,
+          userId: wasteLogsTable.userId,
+          description: wasteLogsTable.description,
+          quantity: wasteLogsTable.quantity,
+          createdAt: wasteLogsTable.createdAt,
+          itemName: wasteItemsTable.name,
+          categoryName: wasteCategoriesTable.name,
+        })
+        .from(wasteLogsTable)
+        .leftJoin(
+          wasteItemsTable,
+          eq(wasteLogsTable.itemId, wasteItemsTable.id)
+        )
+        .leftJoin(
+          wasteCategoriesTable,
+          eq(wasteItemsTable.categoryId, wasteCategoriesTable.id)
+        )
+        .orderBy(wasteLogsTable.createdAt);
     }
 
-    // Initialize Gemini AI
-    const geminiKey = process.env.GEMINI_API_KEY || ENV.GEMINI_API_KEY;
-    if (!geminiKey) {
-      return res.status(500).json({ error: "Gemini API key not configured" });
-    }
+    res.json(logs);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-    const genAI = new GoogleGenerativeAI(geminiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash-exp",
-      systemInstruction: "You are EcoZen AI, a friendly assistant helping users with sustainability, recycling, and eco-living."
+app.get("/api/logs/stats/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get monthly stats
+    const monthlyStats = await db
+      .select()
+      .from(wasteLogsTable)
+      .where(eq(wasteLogsTable.userId, Number(userId)));
+
+    // Calculate total quantity and count
+    const totalQuantity = monthlyStats.reduce(
+      (sum, log) => sum + (log.quantity || 0),
+      0
+    );
+    const totalLogs = monthlyStats.length;
+
+    res.json({
+      totalQuantity,
+      totalLogs,
+      monthlyStats: monthlyStats.slice(-30), // Last 30 entries
     });
-
-    const result = await model.generateContent(message);
-    const aiResponse = result.response.text();
-
-    res.json({ response: aiResponse });
-  } catch (err) {
-    console.error("❌ /api/chat error:", err);
-    res.status(500).json({ error: "Failed to get AI response", details: err.message });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ===================================================================
-// 🔐 Auth, Waste, Logs, and Inquiries routes remain below
-// ===================================================================
-// (Add your existing auth, waste, logs, inquiries routes here as before)
+app.put("/api/logs/:id", async (req, res) => {
+  try {
+    const updated = await db
+      .update(wasteLogsTable)
+      .set(req.body)
+      .where(eq(wasteLogsTable.id, Number(req.params.id)))
+      .returning();
+    res.json(updated[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 app.delete("/api/logs/:id", async (req, res) => {
   try {

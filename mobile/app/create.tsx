@@ -12,20 +12,12 @@ import {
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-
-import { 
-    createNewContent, 
-    updateExistingContent, 
-    deleteContentById,
-    Article, 
-    Quiz 
-} from '../services/sqliteService';
+import { createArticle, createQuiz, createQuizQuestion } from '../utils/api';
+import { Colors } from "../constants/Colors";
 
 // Constants for Categories and Levels
 const CATEGORIES = ['Plastic', 'Water', 'Energy', 'Soil', 'Air Quality', 'General'];
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-
-type ContentData = Omit<Article, 'id'> | Omit<Quiz, 'id'>;
 
 export default function CreatePage() {
     const router = useRouter();
@@ -46,7 +38,6 @@ export default function CreatePage() {
     
     const [isSaving, setIsSaving] = useState(false);
 
-    const isEditing = false;
     const collectionName = (type === 'article' ? 'articles' : 'quizzes') as 'articles' | 'quizzes';
     const headerText = `Create New ${type === 'article' ? 'Article' : 'Quiz'}`;
 
@@ -59,64 +50,66 @@ export default function CreatePage() {
         }
         
         setIsSaving(true);
-        
-        const commonData = { title };
-        let dataToSave: ContentData;
-
-        if (type === 'article') {
-            dataToSave = { 
-                ...commonData, 
-                content: content,
-                category: category, 
-                level: level,      
-            } as Article;
-        } else {
-            dataToSave = { ...commonData, question: question, answer: answer };
-        }
 
         try {
-            await createNewContent(collectionName, dataToSave);
-            Alert.alert("✅ Success", `New ${title} created!`);
+    if (type === 'article') {
+        await createArticle({
+            title: title.trim(),
+            content: content.trim(),
+            category: category,
+            level: level,
+        });
+        Alert.alert("✅ Success", `New article "${title}" created!`);
+    } else {
+                const quiz = await createQuiz({
+                    title: title.trim(),
+                });
+                // Create a question for the quiz
+                if (question.trim() && answer.trim()) {
+                    await createQuizQuestion({
+                        quizId: quiz.id,
+                        question: question.trim(),
+                        correctAnswer: answer.trim(),
+                    });
+                }
+                Alert.alert("✅ Success", `New quiz "${title}" created!`);
+            }
+            
+            router.back();
         } catch (error) {
-            console.error("DB Save Failed:", error);
-            Alert.alert("❌ Error", "Could not save content to the database.");
+            console.error("Create content failed:", error);
+            Alert.alert("❌ Error", "Could not create content. Please try again.");
         } finally {
             setIsSaving(false);
-            router.back();
         }
     };
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
+            {/* Single Green Header */}
+            <View style={styles.topHeader}>
                 <TouchableOpacity 
                     style={styles.backIconButton}
                     onPress={() => router.back()}
                 >
                     <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Learning</Text>
+                <Text style={styles.headerTitle}>Create New Article</Text>
             </View>
 
             <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                {/* Page Title */}
-                <View style={styles.pageHeader}>
-                    <Text style={styles.pageTitle}>{headerText}</Text>
-                    <Text style={styles.pageSubtitle}>
-                        Create educational content for EcoZen
-                    </Text>
-                </View>
+                <Text style={styles.pageSubtitle}>
+                    Create educational content for EcoZen.
+                </Text>
 
                 {isSaving && (
                     <View style={styles.loadingCard}>
-                        <ActivityIndicator size="small" color="#67A859" />
+                        <ActivityIndicator size="small" color={Colors.secondary} />
                         <Text style={styles.loadingText}>Processing...</Text>
                     </View>
                 )}
 
-                {/* Form Card */}
-                <View style={styles.formCard}>
+                {/* Form Fields */}
                     {/* Title Input */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Title</Text>
@@ -203,7 +196,6 @@ export default function CreatePage() {
                             </View>
                         </>
                     )}
-                </View>
 
                 {/* Action Buttons */}
                 <View style={styles.buttonContainer}>
@@ -213,7 +205,7 @@ export default function CreatePage() {
                         disabled={isSaving}
                     >
                         <Text style={styles.primaryButtonText}>
-                            {isSaving ? "Saving..." : "Create Content"}
+                            {isSaving ? "Creating..." : "Create Content"}
                         </Text>
                     </TouchableOpacity>
 
@@ -237,10 +229,17 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F5F5F5',
     },
-    header: {
-        backgroundColor: '#67A859',
+    topHeader: {
+        backgroundColor: Colors.secondary,
         paddingTop: 50,
-        paddingBottom: 16,
+        paddingBottom: 20,
+        paddingHorizontal: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    learningHeader: {
+        backgroundColor: Colors.secondary,
+        paddingVertical: 16,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
@@ -249,13 +248,26 @@ const styles = StyleSheet.create({
         marginRight: 12,
         padding: 4,
     },
+    backIconButtonWhite: {
+        marginRight: 12,
+        padding: 4,
+    },
     headerTitle: { 
-        fontSize: 24, 
+        fontSize: 20, 
         fontWeight: "bold", 
         color: '#FFFFFF',
+        fontFamily: 'System',
+        marginLeft: 12,
+    },
+    learningTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#FFFFFF',
+        fontFamily: 'System',
     },
     scrollContent: {
         flex: 1,
+        padding: 20,
     },
     pageHeader: {
         paddingHorizontal: 20,
@@ -263,15 +275,17 @@ const styles = StyleSheet.create({
         paddingBottom: 16,
     },
     pageTitle: {
-        fontSize: 32,
+        fontSize: 24,
         fontWeight: 'bold',
-        color: '#2C2C2C',
+        color: '#000000',
         marginBottom: 8,
+        fontFamily: 'System',
     },
     pageSubtitle: {
         fontSize: 16,
         color: '#757575',
         lineHeight: 22,
+        marginBottom: 20,
     },
     loadingCard: {
         backgroundColor: '#fff',
@@ -290,7 +304,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginLeft: 10,
-        color: '#67A859',
+        color: Colors.secondary,
         fontSize: 14,
         fontWeight: '500',
     },
@@ -344,7 +358,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     primaryButton: {
-        backgroundColor: '#67A859',
+        backgroundColor: Colors.secondary,
         paddingVertical: 16,
         borderRadius: 8,
         marginBottom: 12,
@@ -354,6 +368,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 3,
+        width: '100%',
     },
     primaryButtonText: {
         color: '#FFFFFF',

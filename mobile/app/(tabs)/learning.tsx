@@ -1,505 +1,395 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Text,
   View,
+  Text,
   StyleSheet,
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
   Modal,
   Alert,
-  Image,
+  ActivityIndicator,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { useRouter, useFocusEffect } from "expo-router";
+import { Ionicons } from '@expo/vector-icons';
+import { getArticles, getQuizzes, deleteArticle, deleteQuiz } from '../../utils/api';
+import { Colors } from "../../constants/Colors";
 
 interface Article {
   id: number;
   title: string;
-  excerpt: string;
-  readTime: string;
-  category: string;
-  difficulty: "Beginner" | "Intermediate" | "Advanced";
-  image: string;
   content: string;
+  category: string;
+  level: string;
+  authorId?: number;
+  createdAt?: string;
 }
 
 interface Quiz {
   id: number;
   title: string;
-  description: string;
-  questionCount: number;
-  difficulty: "Easy" | "Medium" | "Hard";
-  category: string;
-  points: number;
-  completed: boolean;
+  createdAt?: string;
+  questions?: QuizQuestion[];
 }
 
 interface QuizQuestion {
   id: number;
+  quizId: number;
   question: string;
-  options: string[];
-  correctAnswer: number;
-  explanation: string;
+  correctAnswer: string;
+  options?: string;
 }
 
 export default function LearningScreen() {
-  const [activeTab, setActiveTab] = useState<"articles" | "quizzes">(
-    "articles"
-  );
+  const router = useRouter();
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'articles' | 'quizzes'>('articles');
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showResults, setShowResults] = useState(false);
-  const [score, setScore] = useState(0);
   const [modalVisible, setModalVisible] = useState(false);
   const [quizModalVisible, setQuizModalVisible] = useState(false);
 
-  // Mock data - in real app this would come from API
-  const articles: Article[] = [
-    {
-      id: 1,
-      title: "The Complete Guide to Plastic Recycling",
-      excerpt:
-        "Learn about different types of plastics and how to properly recycle them...",
-      readTime: "5 min read",
-      category: "Plastic",
-      difficulty: "Beginner",
-      image: "🔄",
-      content:
-        "Plastic recycling is one of the most important aspects of waste management. Different types of plastics require different recycling processes...",
-    },
-    {
-      id: 2,
-      title: "Composting at Home: A Step-by-Step Guide",
-      excerpt:
-        "Transform your organic waste into nutrient-rich compost for your garden...",
-      readTime: "8 min read",
-      category: "Organic",
-      difficulty: "Intermediate",
-      image: "🌱",
-      content:
-        "Composting is a natural process that transforms organic waste into valuable fertilizer. Here's how you can start composting at home...",
-    },
-    {
-      id: 3,
-      title: "Electronic Waste: What You Need to Know",
-      excerpt:
-        "Understanding the importance of proper e-waste disposal and recycling...",
-      readTime: "6 min read",
-      category: "Electronics",
-      difficulty: "Advanced",
-      image: "📱",
-      content:
-        "Electronic waste contains valuable materials but also hazardous substances. Proper disposal is crucial for environmental protection...",
-    },
-    {
-      id: 4,
-      title: "Glass Recycling: From Bottle to Bottle",
-      excerpt:
-        "Discover the fascinating process of glass recycling and its environmental benefits...",
-      readTime: "4 min read",
-      category: "Glass",
-      difficulty: "Beginner",
-      image: "🍶",
-      content:
-        "Glass is 100% recyclable and can be recycled endlessly without loss in quality. Learn about the glass recycling process...",
-    },
-  ];
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [articlesData, quizzesData] = await Promise.all([
+        getArticles(),
+        getQuizzes()
+      ]);
+      setArticles(articlesData);
+      setQuizzes(quizzesData);
+    } catch (error) {
+      console.error("Failed to fetch content from backend:", error);
+      Alert.alert("Error", "Failed to load learning content. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const quizzes: Quiz[] = [
-    {
-      id: 1,
-      title: "Plastic Types Quiz",
-      description:
-        "Test your knowledge about different plastic types and their recycling codes",
-      questionCount: 5,
-      difficulty: "Easy",
-      category: "Plastic",
-      points: 50,
-      completed: false,
-    },
-    {
-      id: 2,
-      title: "Waste Separation Challenge",
-      description: "How well do you know which bin each item belongs to?",
-      questionCount: 10,
-      difficulty: "Medium",
-      category: "General",
-      points: 100,
-      completed: true,
-    },
-    {
-      id: 3,
-      title: "Environmental Impact Expert",
-      description:
-        "Advanced quiz on the environmental impact of different waste materials",
-      questionCount: 15,
-      difficulty: "Hard",
-      category: "Environment",
-      points: 150,
-      completed: false,
-    },
-  ];
-
-  const sampleQuestions: QuizQuestion[] = [
-    {
-      id: 1,
-      question:
-        "What does the recycling code '1' on plastic containers indicate?",
-      options: ["PET/PETE", "HDPE", "PVC", "LDPE"],
-      correctAnswer: 0,
-      explanation:
-        "Code 1 indicates PET/PETE (Polyethylene Terephthalate), commonly used for water bottles and food containers.",
-    },
-    {
-      id: 2,
-      question:
-        "Which of these materials takes the longest to decompose in a landfill?",
-      options: ["Paper", "Plastic bottle", "Apple core", "Aluminum can"],
-      correctAnswer: 1,
-      explanation:
-        "Plastic bottles can take 450-1000 years to decompose, much longer than other materials.",
-    },
-  ];
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [])
+  );
 
   const openArticle = (article: Article) => {
-    setSelectedArticle(article);
-    setModalVisible(true);
+    router.push({
+      pathname: '/ArticleDetail',
+      params: { 
+        itemId: article.id.toString(),
+        itemTitle: article.title 
+      }
+    });
   };
 
   const startQuiz = (quiz: Quiz) => {
-    setSelectedQuiz(quiz);
-    setCurrentQuestion(0);
-    setSelectedAnswer(null);
-    setShowResults(false);
-    setScore(0);
-    setQuizModalVisible(true);
+    router.push({
+      pathname: '/QuizDetail',
+      params: { 
+        itemId: quiz.id.toString(),
+        itemTitle: quiz.title 
+      }
+    });
   };
 
-  const handleAnswerSelect = (answerIndex: number) => {
-    setSelectedAnswer(answerIndex);
+  const handleDeleteArticle = async (articleId: number) => {
+    Alert.alert(
+      "Delete Article",
+      "Are you sure you want to delete this article?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteArticle(articleId);
+              await fetchData();
+              Alert.alert("Success", "Article deleted successfully");
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete article");
+            }
+          },
+        },
+      ]
+    );
   };
 
-  const nextQuestion = () => {
-    if (selectedAnswer === sampleQuestions[currentQuestion].correctAnswer) {
-      setScore(score + 1);
-    }
-
-    if (currentQuestion + 1 < sampleQuestions.length) {
-      setCurrentQuestion(currentQuestion + 1);
-      setSelectedAnswer(null);
-    } else {
-      setShowResults(true);
-    }
+  const handleDeleteQuiz = async (quizId: number) => {
+    Alert.alert(
+      "Delete Quiz",
+      "Are you sure you want to delete this quiz?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteQuiz(quizId);
+              await fetchData();
+              Alert.alert("Success", "Quiz deleted successfully");
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete quiz");
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case "Beginner":
-      case "Easy":
         return "#4CAF50";
       case "Intermediate":
-      case "Medium":
         return "#FF9800";
       case "Advanced":
-      case "Hard":
         return "#F44336";
       default:
         return "#666";
     }
   };
 
+  const calculateReadTime = (content: string) => {
+    const wordsPerMinute = 200;
+    const wordCount = content.split(' ').length;
+    const minutes = Math.ceil(wordCount / wordsPerMinute);
+    return `${minutes} min read`;
+  };
+
+  const getCategoryColor = (category: string) => {
+    const colors: { [key: string]: string } = {
+      'Air Quality': '#E3F2FD',
+      'Water': '#E8F5E8',
+      'Energy': '#FFF3E0',
+      'Soil': '#F3E5F5',
+      'Plastic': '#E1F5FE',
+      'General': '#F5F5F5',
+    };
+    return colors[category] || '#F5F5F5';
+  };
+
+  const getLevelColor = (level: string) => {
+    const colors: { [key: string]: string } = {
+      'Beginner': '#C8E6C9',
+      'Intermediate': '#FFF3E0',
+      'Advanced': '#FFCDD2',
+    };
+    return colors[level] || '#F5F5F5';
+  };
+
+  const getCategoryTextColor = (category: string) => {
+    const colors: { [key: string]: string } = {
+      'Air Quality': '#1976D2',
+      'Water': '#2E7D32',
+      'Energy': '#F57C00',
+      'Soil': '#7B1FA2',
+      'Plastic': '#0277BD',
+      'General': '#424242',
+    };
+    return colors[category] || '#424242';
+  };
+
+  const getLevelTextColor = (level: string) => {
+    const colors: { [key: string]: string } = {
+      'Beginner': '#2E7D32',
+      'Intermediate': '#F57C00',
+      'Advanced': '#D32F2F',
+    };
+    return colors[level] || '#424242';
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Learning</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={Colors.secondary} />
+          <Text style={styles.loadingText}>Loading Learning Hub...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Learning Hub</Text>
-        <Text style={styles.headerSubtitle}>Expand your knowledge</Text>
+      {/* Single Green Header */}
+      <View style={styles.topHeader}>
+        <View style={styles.headerContent}>
+          <Text style={styles.learningTitle}>Learning Hub</Text>
+          <Text style={styles.headerSubtitle}>
+            {activeTab === 'articles' 
+              ? `${articles.length} articles found` 
+              : `${quizzes.length} quizzes found`
+            }
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.chatButton}
+          onPress={() => router.push('/AIChat')}
+        >
+          <Ionicons name="chatbubbles-outline" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
       </View>
 
-      {/* Tab Navigation */}
-      <View style={styles.tabContainer}>
+      {/* White Second Header with Tabs */}
+      <View style={styles.whiteHeader}>
+        <View style={styles.tabContainer}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === "articles" && styles.activeTab]}
-          onPress={() => setActiveTab("articles")}
+            style={[styles.tab, activeTab === 'articles' && styles.activeTab]}
+            onPress={() => setActiveTab('articles')}
         >
           <Ionicons
-            name="library"
+              name="book"
             size={20}
-            color={activeTab === "articles" ? "#4CAF50" : "#666"}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "articles" && styles.activeTabText,
-            ]}
-          >
+              color={activeTab === 'articles' ? Colors.secondary : '#757575'}
+            />
+            <Text style={[styles.tabText, activeTab === 'articles' && styles.activeTabText]}>
             Articles
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.tab, activeTab === "quizzes" && styles.activeTab]}
-          onPress={() => setActiveTab("quizzes")}
+            style={[styles.tab, activeTab === 'quizzes' && styles.activeTab]}
+            onPress={() => setActiveTab('quizzes')}
         >
           <Ionicons
             name="help-circle"
             size={20}
-            color={activeTab === "quizzes" ? "#4CAF50" : "#666"}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "quizzes" && styles.activeTabText,
-            ]}
-          >
+              color={activeTab === 'quizzes' ? Colors.secondary : '#757575'}
+            />
+            <Text style={[styles.tabText, activeTab === 'quizzes' && styles.activeTabText]}>
             Quizzes
           </Text>
         </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={styles.content}>
-        {activeTab === "articles" ? (
-          <View style={styles.articlesContainer}>
-            {articles.map((article) => (
+      <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Add Button */}
+        <View style={styles.addButtonContainer}>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => router.push({
+              pathname: '/create',
+              params: { type: activeTab.slice(0, -1) } // Remove 's' from 'articles'/'quizzes'
+            })}
+          >
+            <Ionicons name="add" size={20} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>+ Add {activeTab.slice(0, -1) === 'article' ? 'Article' : 'Quiz'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Content */}
+        <View style={styles.contentContainer}>
+          {activeTab === 'articles' ? (
+            <>
+              {articles.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  No articles available yet.
+                </Text>
+              ) : (
+                articles.map((article) => (
               <TouchableOpacity
                 key={article.id}
                 style={styles.articleCard}
                 onPress={() => openArticle(article)}
               >
-                <View style={styles.articleHeader}>
-                  <View style={styles.articleImage}>
-                    <Text style={styles.imageEmoji}>{article.image}</Text>
-                  </View>
-                  <View style={styles.articleInfo}>
-                    <Text style={styles.articleTitle}>{article.title}</Text>
-                    <Text style={styles.articleExcerpt}>{article.excerpt}</Text>
-                    <View style={styles.articleMeta}>
-                      <View style={styles.categoryBadge}>
-                        <Text style={styles.categoryText}>
-                          {article.category}
-                        </Text>
+                {/* Green Icon on Left */}
+                <View style={styles.articleIconContainer}>
+                  <Ionicons name="document-text" size={24} color={Colors.secondary} />
+                </View>
+                
+                {/* Main Content */}
+                <View style={styles.articleContent}>
+                  <Text style={styles.articleTitle}>{article.title}</Text>
+                  <Text style={styles.articleDescription} numberOfLines={2}>
+                    {article.content?.substring(0, 100) || 'Read this article...'}...
+                  </Text>
+                  
+                  {/* Badges and Reading Time */}
+                  <View style={styles.articleMeta}>
+                    <View style={styles.badgeContainer}>
+                      <View style={[styles.categoryBadge, { backgroundColor: getCategoryColor(article.category) }]}>
+                        <Text style={[styles.categoryText, { color: getCategoryTextColor(article.category) }]}>{article.category}</Text>
                       </View>
-                      <View
-                        style={[
-                          styles.difficultyBadge,
-                          {
-                            backgroundColor: getDifficultyColor(
-                              article.difficulty
-                            ),
-                          },
-                        ]}
-                      >
-                        <Text style={styles.difficultyText}>
-                          {article.difficulty}
-                        </Text>
+                      <View style={[styles.difficultyBadge, { backgroundColor: getLevelColor(article.level) }]}>
+                        <Text style={[styles.difficultyText, { color: getLevelTextColor(article.level) }]}>{article.level}</Text>
                       </View>
-                      <Text style={styles.readTime}>{article.readTime}</Text>
                     </View>
+                    <Text style={styles.readTime}>
+                      {calculateReadTime(article.content || '')}
+                    </Text>
                   </View>
                 </View>
+                
+                {/* Edit Icon in Top Right */}
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    router.push({
+                      pathname: '/edit/[id]',
+                      params: { id: article.id.toString(), type: 'article' }
+                    });
+                  }}
+                  style={styles.editIconButton}
+                >
+                  <Ionicons name="pencil-outline" size={18} color="#666666" />
+                </TouchableOpacity>
               </TouchableOpacity>
-            ))}
-          </View>
-        ) : (
-          <View style={styles.quizzesContainer}>
-            {quizzes.map((quiz) => (
-              <TouchableOpacity
-                key={quiz.id}
-                style={[
-                  styles.quizCard,
-                  quiz.completed && styles.completedQuizCard,
-                ]}
-                onPress={() => startQuiz(quiz)}
-              >
-                <View style={styles.quizHeader}>
-                  <View style={styles.quizIcon}>
-                    <Ionicons
-                      name={quiz.completed ? "checkmark-circle" : "help-circle"}
-                      size={24}
-                      color={quiz.completed ? "#4CAF50" : "#FF9800"}
-                    />
-                  </View>
-                  <View style={styles.quizInfo}>
-                    <Text style={styles.quizTitle}>{quiz.title}</Text>
-                    <Text style={styles.quizDescription}>
-                      {quiz.description}
+                ))
+              )}
+            </>
+          ) : (
+            <>
+              {quizzes.length === 0 ? (
+                <Text style={styles.emptyText}>
+                  No quizzes available yet.
                     </Text>
-                    <View style={styles.quizMeta}>
-                      <View style={styles.quizStats}>
-                        <Text style={styles.questionCount}>
-                          {quiz.questionCount} questions
-                        </Text>
-                        <View
-                          style={[
-                            styles.difficultyBadge,
-                            {
-                              backgroundColor: getDifficultyColor(
-                                quiz.difficulty
-                              ),
-                            },
-                          ]}
-                        >
-                          <Text style={styles.difficultyText}>
-                            {quiz.difficulty}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.pointsBadge}>
-                        <Ionicons name="star" size={14} color="#FFD700" />
-                        <Text style={styles.pointsText}>{quiz.points} pts</Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                {quiz.completed && (
-                  <View style={styles.completedBanner}>
-                    <Text style={styles.completedText}>✓ Completed</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </ScrollView>
-
-      {/* Article Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedArticle && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{selectedArticle.title}</Text>
-                  <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <Ionicons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-                </View>
-                <ScrollView style={styles.modalBody}>
-                  <View style={styles.articleContent}>
-                    <Text style={styles.articleText}>
-                      {selectedArticle.content}
-                    </Text>
-                  </View>
-                </ScrollView>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Quiz Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={quizModalVisible}
-        onRequestClose={() => setQuizModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            {selectedQuiz && (
-              <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>{selectedQuiz.title}</Text>
-                  <TouchableOpacity onPress={() => setQuizModalVisible(false)}>
-                    <Ionicons name="close" size={24} color="#666" />
-                  </TouchableOpacity>
-                </View>
-
-                {!showResults ? (
-                  <View style={styles.quizContent}>
-                    <View style={styles.progressBar}>
-                      <View
-                        style={[
-                          styles.progressFill,
-                          {
-                            width: `${
-                              ((currentQuestion + 1) / sampleQuestions.length) *
-                              100
-                            }%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.questionCounter}>
-                      Question {currentQuestion + 1} of {sampleQuestions.length}
-                    </Text>
-
-                    <Text style={styles.questionText}>
-                      {sampleQuestions[currentQuestion].question}
-                    </Text>
-
-                    <View style={styles.optionsContainer}>
-                      {sampleQuestions[currentQuestion].options.map(
-                        (option, index) => (
+              ) : (
+                quizzes.map((quiz) => (
                           <TouchableOpacity
-                            key={index}
-                            style={[
-                              styles.optionButton,
-                              selectedAnswer === index && styles.selectedOption,
-                            ]}
-                            onPress={() => handleAnswerSelect(index)}
-                          >
-                            <Text
-                              style={[
-                                styles.optionText,
-                                selectedAnswer === index &&
-                                  styles.selectedOptionText,
-                              ]}
-                            >
-                              {option}
+                    key={quiz.id}
+                    style={styles.articleCard}
+                    onPress={() => startQuiz(quiz)}
+                  >
+                    <View style={styles.articleHeader}>
+                      <View style={styles.articleImage}>
+                        <Text style={styles.imageEmoji}>❓</Text>
+                      </View>
+                      <View style={styles.articleInfo}>
+                        <Text style={styles.articleTitle}>{quiz.title}</Text>
+                        <Text style={styles.articleExcerpt} numberOfLines={2}>
+                          Test your knowledge with this quiz
                             </Text>
-                          </TouchableOpacity>
-                        )
-                      )}
                     </View>
-
                     <TouchableOpacity
-                      style={[
-                        styles.nextButton,
-                        selectedAnswer === null && styles.disabledButton,
-                      ]}
-                      onPress={nextQuestion}
-                      disabled={selectedAnswer === null}
-                    >
-                      <Text style={styles.nextButtonText}>
-                        {currentQuestion + 1 === sampleQuestions.length
-                          ? "Finish"
-                          : "Next"}
-                      </Text>
+                        style={styles.editIconButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push({
+                            pathname: '/edit/[id]',
+                            params: { id: quiz.id.toString(), type: 'quiz' }
+                          });
+                        }}
+                      >
+                        <Ionicons name="pencil-outline" size={20} color="#757575" />
                     </TouchableOpacity>
                   </View>
-                ) : (
-                  <View style={styles.resultsContainer}>
-                    <Ionicons name="trophy" size={64} color="#FFD700" />
-                    <Text style={styles.resultsTitle}>Quiz Completed!</Text>
-                    <Text style={styles.scoreText}>
-                      You scored {score} out of {sampleQuestions.length}
-                    </Text>
-                    <Text style={styles.pointsEarned}>
-                      Points earned:{" "}
-                      {Math.round(
-                        (score / sampleQuestions.length) * selectedQuiz.points
-                      )}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.doneButton}
-                      onPress={() => setQuizModalVisible(false)}
-                    >
-                      <Text style={styles.doneButtonText}>Done</Text>
                     </TouchableOpacity>
-                  </View>
+                ))
                 )}
               </>
             )}
           </View>
-        </View>
-      </Modal>
+
+        <View style={styles.footerSpacer} />
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -507,78 +397,181 @@ export default function LearningScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: '#F5F5F5',
   },
-  header: {
-    padding: 20,
-    paddingBottom: 10,
+  topHeader: {
+    backgroundColor: Colors.secondary,
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#333",
+  headerContent: {
+    flex: 1,
+  },
+  learningTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontFamily: 'System',
+    marginBottom: 4,
   },
   headerSubtitle: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.9,
+    fontFamily: 'System',
+  },
+  whiteHeader: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  header: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    fontFamily: 'System',
+    marginBottom: 4,
+  },
+  subtitle: {
     fontSize: 16,
-    color: "#666",
-    marginTop: 4,
+    color: '#666666',
+    fontFamily: 'System',
+  },
+  chatButton: {
+    padding: 8,
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: Colors.secondary,
+    fontWeight: '500',
+  },
+  pageHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 20,
+  },
+  pageTitle: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#2C2C2C',
+    marginBottom: 8,
+  },
+  pageSubtitle: {
+    fontSize: 16,
+    color: '#757575',
   },
   tabContainer: {
-    flexDirection: "row",
+    flexDirection: 'row',
     paddingHorizontal: 20,
     marginBottom: 20,
+    gap: 12,
   },
   tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: "white",
-    marginHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
   },
   activeTab: {
-    backgroundColor: "#E8F5E8",
+    backgroundColor: '#E8F5E9',
   },
   tabText: {
     fontSize: 16,
-    color: "#666",
-    marginLeft: 8,
+    fontWeight: '500',
+    color: '#757575',
   },
   activeTabText: {
-    color: "#4CAF50",
-    fontWeight: "600",
+    color: Colors.secondary,
+    fontWeight: '600',
   },
-  content: {
-    flex: 1,
+  addButtonContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  addButton: {
+    backgroundColor: Colors.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    gap: 8,
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  contentContainer: {
     paddingHorizontal: 20,
   },
-  articlesContainer: {
-    paddingBottom: 20,
-  },
   articleCard: {
-    backgroundColor: "white",
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
+    padding: 15,
+    marginBottom: 15,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 4,
+    elevation: 3,
+    position: 'relative',
+  },
+  articleIconContainer: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  articleContent: {
+    flex: 1,
+    marginRight: 10,
   },
   articleHeader: {
-    flexDirection: "row",
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
   articleImage: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: "#f0f0f0",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 16,
   },
   imageEmoji: {
@@ -588,24 +581,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   articleTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#000000',
+    marginBottom: 8,
+    fontFamily: 'System',
+    lineHeight: 24,
+  },
+  articleDescription: {
+    fontSize: 14,
+    color: '#666666',
+    marginBottom: 12,
+    fontStyle: 'italic',
+    lineHeight: 20,
   },
   articleExcerpt: {
     fontSize: 14,
-    color: "#666",
+    color: '#666',
     marginBottom: 8,
     lineHeight: 20,
   },
   articleMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  badgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   categoryBadge: {
-    backgroundColor: "#E3F2FD",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
@@ -613,9 +618,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryText: {
-    fontSize: 11,
-    color: "#2196F3",
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: '500',
   },
   difficultyBadge: {
     paddingHorizontal: 8,
@@ -625,230 +629,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   difficultyText: {
-    fontSize: 11,
-    color: "white",
-    fontWeight: "500",
+    fontSize: 12,
+    fontWeight: '500',
   },
   readTime: {
     fontSize: 12,
-    color: "#999",
+    color: '#999',
   },
-  quizzesContainer: {
-    paddingBottom: 20,
-  },
-  quizCard: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  completedQuizCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: "#4CAF50",
-  },
-  quizHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  quizIcon: {
-    marginRight: 16,
-  },
-  quizInfo: {
-    flex: 1,
-  },
-  quizTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  quizDescription: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  quizMeta: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  quizStats: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  questionCount: {
-    fontSize: 12,
-    color: "#999",
-    marginRight: 12,
-  },
-  pointsBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FFF8E1",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  pointsText: {
-    fontSize: 12,
-    color: "#F57C00",
-    marginLeft: 4,
-    fontWeight: "500",
-  },
-  completedBanner: {
-    marginTop: 12,
+  editIconButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
     padding: 8,
-    backgroundColor: "#E8F5E8",
-    borderRadius: 8,
-    alignItems: "center",
+    borderRadius: 20,
+    backgroundColor: 'transparent',
   },
-  completedText: {
-    fontSize: 12,
-    color: "#4CAF50",
-    fontWeight: "600",
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: "white",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "90%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    flex: 1,
-    marginRight: 16,
-  },
-  modalBody: {
-    flex: 1,
-    padding: 20,
-  },
-  articleContent: {
-    paddingBottom: 20,
-  },
-  articleText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#333",
-  },
-  quizContent: {
-    flex: 1,
-    padding: 20,
-  },
-  progressBar: {
-    height: 4,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 2,
-    marginBottom: 16,
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#4CAF50",
-    borderRadius: 2,
-  },
-  questionCounter: {
+  emptyText: {
+    textAlign: 'center',
+    color: '#9E9E9E',
     fontSize: 14,
-    color: "#666",
-    marginBottom: 20,
-    textAlign: "center",
+    marginVertical: 40,
   },
-  questionText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 24,
-    lineHeight: 26,
-  },
-  optionsContainer: {
-    marginBottom: 32,
-  },
-  optionButton: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  selectedOption: {
-    backgroundColor: "#E8F5E8",
-    borderColor: "#4CAF50",
-  },
-  optionText: {
-    fontSize: 16,
-    color: "#333",
-  },
-  selectedOptionText: {
-    color: "#4CAF50",
-    fontWeight: "600",
-  },
-  nextButton: {
-    backgroundColor: "#4CAF50",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  disabledButton: {
-    backgroundColor: "#ccc",
-  },
-  nextButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  resultsContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-  },
-  resultsTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  scoreText: {
-    fontSize: 18,
-    color: "#666",
-    marginBottom: 8,
-  },
-  pointsEarned: {
-    fontSize: 16,
-    color: "#4CAF50",
-    fontWeight: "600",
-    marginBottom: 32,
-  },
-  doneButton: {
-    backgroundColor: "#4CAF50",
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 12,
-  },
-  doneButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
+  footerSpacer: {
+    height: 40,
   },
 });

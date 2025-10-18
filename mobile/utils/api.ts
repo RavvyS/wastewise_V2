@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator  
+    ? 'http://10.0.2.2:5001' // Development - use actual IP for mobile simulator  
     : 'https://backend-two-zeta-41.vercel.app'; // Production - Vercel (Working URL)
 
 export const API_ENDPOINTS = {
@@ -38,6 +38,14 @@ export const API_ENDPOINTS = {
     INQUIRY_BY_ID: (inquiryId: number) => `/api/inquiries/${inquiryId}`,
     SEND_INQUIRY: (inquiryId: number) => `/api/inquiries/${inquiryId}/send`,
     ANSWER_INQUIRY: (inquiryId: number) => `/api/inquiries/${inquiryId}/answer`,
+
+    // Articles & Quizzes (Learning Hub)
+    ARTICLES: '/api/articles',
+    ARTICLE_BY_ID: (articleId: number) => `/api/articles/${articleId}`,
+    QUIZZES: '/api/quizzes',
+    QUIZ_BY_ID: (quizId: number) => `/api/quizzes/${quizId}`,
+    QUIZ_QUESTIONS: '/api/questions',
+    QUESTION_BY_ID: (questionId: number) => `/api/questions/${questionId}`,
 };
 
 // Token Management (using simple in-memory storage for demo)
@@ -202,4 +210,94 @@ export const updateUserRole = async (userId: number, role: 'user' | 'manager' | 
 
 export const updateUserStatus = async (userId: number, isActive: boolean) => {
     return await apiPut(API_ENDPOINTS.UPDATE_USER_STATUS(userId), { isActive });
+};
+
+// Articles API Functions
+export const getArticles = async () => {
+    return await apiGet(API_ENDPOINTS.ARTICLES);
+};
+
+export const getArticleById = async (articleId: number) => {
+    return await apiGet(API_ENDPOINTS.ARTICLE_BY_ID(articleId));
+};
+
+export const createArticle = async (articleData: {
+    title: string;
+    content: string;
+    category?: string;
+    level?: string;
+    authorId?: number;
+}) => {
+    return await apiPost(API_ENDPOINTS.ARTICLES, articleData);
+};
+
+export const updateArticle = async (articleId: number, articleData: {
+    title?: string;
+    content?: string;
+    category?: string;
+    level?: string;
+}) => {
+    return await apiPut(API_ENDPOINTS.ARTICLE_BY_ID(articleId), articleData);
+};
+
+export const deleteArticle = async (articleId: number) => {
+    return await apiDelete(API_ENDPOINTS.ARTICLE_BY_ID(articleId));
+};
+
+// Quizzes API Functions
+export const getQuizzes = async () => {
+    return await apiGet(API_ENDPOINTS.QUIZZES);
+};
+
+export const getQuizById = async (quizId: number) => {
+    return await apiGet(API_ENDPOINTS.QUIZ_BY_ID(quizId));
+};
+
+// Get quiz with its questions
+export const getQuizWithQuestions = async (quizId: number) => {
+    const quiz = await apiGet(API_ENDPOINTS.QUIZ_BY_ID(quizId));
+    const questions = await apiGet(`${API_ENDPOINTS.QUIZ_QUESTIONS}?quizId=${quizId}`);
+    return { ...quiz, questions };
+};
+
+export const createQuiz = async (quizData: {
+    title: string;
+}) => {
+    return await apiPost(API_ENDPOINTS.QUIZZES, quizData);
+};
+
+export const updateQuiz = async (quizId: number, quizData: {
+    title?: string;
+}) => {
+    return await apiPut(API_ENDPOINTS.QUIZ_BY_ID(quizId), quizData);
+};
+
+export const deleteQuiz = async (quizId: number) => {
+    return await apiDelete(API_ENDPOINTS.QUIZ_BY_ID(quizId));
+};
+
+// Quiz Questions API Functions
+export const getQuizQuestions = async () => {
+    return await apiGet(API_ENDPOINTS.QUIZ_QUESTIONS);
+};
+
+export const createQuizQuestion = async (questionData: {
+    quizId: number;
+    question: string;
+    correctAnswer: string;
+    options?: string;
+}) => {
+    return await apiPost(API_ENDPOINTS.QUIZ_QUESTIONS, questionData);
+};
+
+export const updateQuizQuestion = async (questionId: number, questionData: {
+    question?: string;
+    correctAnswer?: string;
+    options?: string;
+}) => {
+    return await apiPut(API_ENDPOINTS.QUESTION_BY_ID(questionId), questionData);
+};
+
+export const deleteQuizQuestion = async (questionId: number) => {
+    return await apiDelete(API_ENDPOINTS.QUESTION_BY_ID(questionId));
 };

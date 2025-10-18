@@ -1,15 +1,29 @@
-// app/edit/[id].tsx
 import React, { useState, useEffect } from "react";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import ContentForm from "../ContentForm";
-
-// Import the service functions
-import { getContentById, Article, Quiz } from '../../services/sqliteService';
+import { getArticleById, getQuizWithQuestions } from '../../utils/api';
 
 interface EditParams {
   id: string;
   type: 'article' | 'quiz';
+}
+
+interface Article {
+  id: number;
+  title: string;
+  content: string;
+  category?: string;
+  level?: string;
+  createdAt?: string;
+}
+
+interface Quiz {
+  id: number;
+  title: string;
+  question?: string;
+  answer?: string;
+  createdAt?: string;
 }
 
 export default function EditScreen() {
@@ -29,19 +43,14 @@ export default function EditScreen() {
       }
 
       try {
-        // Fix: Properly construct collection name (quiz -> quizzes, article -> articles)
-        const collectionName = (type === 'article' ? 'articles' : 'quizzes') as 'articles' | 'quizzes';
-        
-        // Fetch the data based on type
         let data: Article | Quiz | null = null;
         
         if (type === 'article') {
-          data = await getContentById<Article>(collectionName, id);
+          data = await getArticleById(Number(id));
         } else {
-          data = await getContentById<Quiz>(collectionName, id);
+          data = await getQuizWithQuestions(Number(id));
         }
 
-        // Check if data was found
         if (data) {
           setContentData(data);
         } else {

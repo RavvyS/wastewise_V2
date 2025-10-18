@@ -1,10 +1,8 @@
-// D:\wastewise_V2\backend\drizzle.config.js
-// Ensure this is saved exactly as provided in the last fix.
+import { ENV } from "./src/config/env.js";
+
 export default {
-    schema: "./src/db/schema.js",
-    out: "./src/db/migrations",
-    dialect: "sqlite", // MUST be 'sqlite'
-    dbCredentials: {
-        url: './src/sqlite.db', // MUST point to the local file
-    }
+  schema: "./src/db/schema.js",
+  out: "./src/db/migrations",
+  dialect: "postgresql",
+  dbCredentials: { url: ENV.DATABASE_URL },
 };

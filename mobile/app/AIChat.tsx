@@ -14,10 +14,7 @@ import {
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import * as Speech from "expo-speech";
-
-// 1. FIX: Cast the import to 'any' to resolve TS2307 and TS2664
-// This tells TypeScript to treat Voice as an object of type 'any', silencing the "module not found" error.
-const Voice = require('@react-native-community/voice') as any;
+import { useSpeechRecognitionEvent, ExpoSpeechRecognitionModule } from "expo-speech-recognition";
 
 // ✅ Use the simple fetch service that talks to the Node.js backend
 // NOTE: Assuming this file is located at ./services/EcoZenAI.ts
@@ -29,12 +26,10 @@ interface Message {
     sender: 'user' | 'ai';
 }
 
-// 2. Define types for Voice event callbacks (Kept from last fix to prevent implicit 'any' errors)
-interface VoiceSpeechResultsEvent {
-    value?: string[];
-}
-interface VoiceSpeechErrorEvent {
-    error?: any;
+// Speech recognition types
+interface SpeechRecognitionResult {
+    transcript: string;
+    confidence?: number;
 }
 
 
@@ -59,49 +54,25 @@ export default function AIChat() {
     }, []);
     
     // --- SETUP VOICE EVENT LISTENERS ---
-    useEffect(() => {
-        let voiceAvailable = true;
+    // Speech recognition event listener
+    useSpeechRecognitionEvent("result", (event) => {
+        const transcript = event.results[0]?.transcript;
+        if (transcript) {
+            setInput(transcript);
+            handleSend(transcript);
+            setIsListening(false);
+        }
+    });
 
-        const setupVoice = async () => {
-            try {
-                // Since Voice is now type 'any', we trust the runtime calls
-                await Voice.isAvailable(); 
-                Voice.onSpeechStart = () => setIsListening(true);
-                Voice.onSpeechEnd = () => setIsListening(false);
-                
-                // Fixed TS7006 by using the local type definition
-                Voice.onSpeechResults = (e: VoiceSpeechResultsEvent) => {
-                    if (e.value?.length) {
-                        const result = e.value[0];
-                        setInput(result);
-                        handleSend(result);
-                    }
-                };
-                
-                // Fixed TS7006 by using the local type definition
-                Voice.onSpeechError = (e: VoiceSpeechErrorEvent) => {
-                    console.error("Speech error:", e);
-                    Alert.alert("Speech Error", "Microphone access or recognition failed.");
-                };
-            } catch (err) {
-                console.warn("Voice initialization failed:", err);
-                voiceAvailable = false;
-            }
-        };
+    useSpeechRecognitionEvent("error", (event) => {
+        console.error("Speech error:", event.error);
+        Alert.alert("Speech Error", "Microphone access or recognition failed.");
+        setIsListening(false);
+    });
 
-        setupVoice();
-
-        return () => {
-            if (voiceAvailable) {
-                try {
-                    Voice.removeAllListeners();
-                    Voice.destroy();
-                } catch (err) {
-                    console.warn("Voice cleanup error:", err);
-                }
-            }
-        };
-    }, []); 
+    useSpeechRecognitionEvent("end", () => {
+        setIsListening(false);
+    }); 
 
     const handleSend = async (textToSend: string = input) => {
         const text = textToSend.trim();
@@ -146,17 +117,22 @@ export default function AIChat() {
     const handleVoiceInput = async () => {
         try {
             if (isListening) {
-                await Voice.stop();
+                ExpoSpeechRecognitionModule.stop();
                 setIsListening(false); 
             } else {
                 if (await Speech.isSpeakingAsync()) {
                     await Speech.stop();
                 }
                 setInput(""); 
-                await Voice.start('en-US'); 
+                setIsListening(true);
+                ExpoSpeechRecognitionModule.start({
+                    lang: "en-US",
+                    interimResults: true,
+                    maxAlternatives: 1,
+                });
             }
         } catch (e) {
-            console.error('Voice Start/Stop Error:', e);
+            console.error('Speech Recognition Error:', e);
             setIsListening(false);
             Alert.alert("Microphone Error", "Microphone failed to start. Ensure permissions are granted for this app and you are using a custom development build (not Expo Go).");
         }

@@ -11,39 +11,37 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
-// Cast the import to 'any' to resolve module not found error
-const { Picker } = require('@react-native-picker/picker') as { Picker: any };
-
-// Import original types and functions, aliasing the types
-import { 
-    createNewContent, 
-    updateExistingContent, 
-    deleteContentById,
-    Article as ImportedArticle,
-    Quiz as ImportedQuiz
-} from '../services/sqliteService';
-
-// Define local types used by this component that ensure the presence of required fields
-// FIX: Changed id type from number to string to match sqliteService types
-export interface Article extends ImportedArticle {
-    category: string; 
-    level: string; 
-    content: string;
-    id: string; // Changed from number to string
-}
-
-export interface Quiz extends ImportedQuiz {
-    question: string;
-    answer: string;
-    id: string; // Changed from number to string
-}
-
-// Data shape for content being created/updated (no ID required)
-type ContentData = Omit<Article, 'id'> | Omit<Quiz, 'id'>;
+import { Picker } from '@react-native-picker/picker';
+import { updateArticle, updateQuiz, deleteArticle, deleteQuiz, createQuizQuestion, updateQuizQuestion } from '../utils/api';
+import { Colors } from "../constants/Colors";
 
 // Constants for Categories and Levels
-const CATEGORIES = ['Plastic', 'Water', 'Energy', 'Soil', 'Air Quality', 'Carbon Footprint', 'Sustainable Living', 'General'];
+const CATEGORIES = ['Plastic', 'Water', 'Energy', 'Soil', 'Air Quality', 'General'];
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
+
+interface Article {
+    id: number;
+    title: string;
+    content: string;
+    category?: string;
+    level?: string;
+    createdAt?: string;
+}
+
+interface Quiz {
+    id: number;
+    title: string;
+    createdAt?: string;
+    questions?: QuizQuestion[];
+}
+
+interface QuizQuestion {
+    id: number;
+    quizId: number;
+    question: string;
+    correctAnswer: string;
+    options?: string;
+}
 
 interface ContentFormProps {
     type: 'article' | 'quiz';
@@ -54,15 +52,14 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
     const router = useRouter();
     
     const isArticle = type === 'article';
-    // Use the locally defined Article/Quiz types for safer casting
     const articleData = initialData && isArticle ? initialData as Article : null;
     const quizData = initialData && !isArticle ? initialData as Quiz : null;
     
     // Core content state
     const [title, setTitle] = useState(initialData?.title || '');
     const [content, setContent] = useState(articleData?.content || '');
-    const [question, setQuestion] = useState(quizData?.question || '');
-    const [answer, setAnswer] = useState(quizData?.answer || '');
+    const [question, setQuestion] = useState(quizData?.questions && quizData.questions.length > 0 ? quizData.questions[0].question : '');
+    const [answer, setAnswer] = useState(quizData?.questions && quizData.questions.length > 0 ? quizData.questions[0].correctAnswer : '');
     
     // State for Category & Level
     const [category, setCategory] = useState(articleData?.category || CATEGORIES[0]);
@@ -71,7 +68,6 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
     const [isSaving, setIsSaving] = useState(false);
 
     const isEditing = !!initialData?.id;
-    const collectionName = (type === 'article' ? 'articles' : 'quizzes') as 'articles' | 'quizzes';
     const headerText = isEditing ? `Edit ${type === 'article' ? 'Article' : 'Quiz'}` : `Create New ${type === 'article' ? 'Article' : 'Quiz'}`;
 
     const handleSubmit = async () => {
@@ -83,33 +79,36 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
         }
         
         setIsSaving(true);
-        
-        const commonData = { title };
-        let dataToSave: ContentData;
-
-        if (type === 'article') {
-            dataToSave = { 
-                ...commonData, 
-                content: content,
-                category: category, 
-                level: level,      
-            };
-        } else {
-            dataToSave = { ...commonData, question: question, answer: answer };
-        }
 
         try {
             if (isEditing && initialData?.id) {
-                // FIX: Removed 'as number' cast since id is now string
-                await updateExistingContent(collectionName, initialData.id, dataToSave as ImportedArticle | ImportedQuiz);
-                Alert.alert("✅ Success", `${title} updated successfully!`);
+                if (type === 'article') {
+                    await updateArticle(initialData.id, {
+                        title: title.trim(),
+                        content: content.trim(),
+                    });
+                    Alert.alert("✅ Success", `Article "${title}" updated successfully!`);
+                } else {
+                    await updateQuiz(initialData.id, {
+                        title: title.trim(),
+                    });
+                    // Update or create quiz question
+                    if (question.trim() && answer.trim()) {
+                        // For now, we'll create a new question. In a real app, you'd need to handle updating existing questions
+                        await createQuizQuestion({
+                            quizId: initialData.id,
+                            question: question.trim(),
+                            correctAnswer: answer.trim(),
+                        });
+                    }
+                    Alert.alert("✅ Success", `Quiz "${title}" updated successfully!`);
+                }
             } else {
-                await createNewContent(collectionName, dataToSave as ImportedArticle | ImportedQuiz);
-                Alert.alert("✅ Success", `New ${title} created!`);
+                Alert.alert("❌ Error", "Invalid editing state");
             }
         } catch (error) {
-            console.error("DB Save/Update Failed:", error);
-            Alert.alert("❌ Error", "Could not save content to the database.");
+            console.error("Update failed:", error);
+            Alert.alert("❌ Error", "Could not update content. Please try again.");
         } finally {
             setIsSaving(false);
             router.back();
@@ -130,15 +129,18 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
                     onPress: async () => {
                         setIsSaving(true);
                         try {
-                            // FIX: Removed 'as number' cast since id is now string
-                            await deleteContentById(collectionName, initialData.id);
+                            if (type === 'article') {
+                                await deleteArticle(initialData.id);
+                            } else {
+                                await deleteQuiz(initialData.id);
+                            }
                             Alert.alert("✅ Deleted", `${initialData.title} was removed.`);
+                            router.back();
                         } catch (error) {
                             console.error("Delete Failed:", error);
                             Alert.alert("❌ Error", "Could not delete content.");
                         } finally {
                             setIsSaving(false);
-                            router.back();
                         }
                     },
                 },
@@ -170,7 +172,7 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
 
                 {isSaving && (
                     <View style={styles.loadingCard}>
-                        <ActivityIndicator size="small" color="#67A859" />
+                        <ActivityIndicator size="small" color={Colors.secondary} />
                         <Text style={styles.loadingText}>Processing...</Text>
                     </View>
                 )}
@@ -191,50 +193,18 @@ export default function ContentForm({ type, initialData }: ContentFormProps) {
                     </View>
 
                     {type === 'article' ? (
-                        <>
-                            {/* Category Selector */}
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Category</Text>
-                                <View style={styles.pickerContainer}>
-                                    <Picker
-                                        selectedValue={category}
-                                        onValueChange={(itemValue: string) => setCategory(itemValue)}
-                                        style={styles.picker}
-                                        enabled={!isSaving}
-                                    >
-                                        {CATEGORIES.map(c => <Picker.Item key={c} label={c} value={c} />)}
-                                    </Picker>
-                                </View>
-                            </View>
-
-                            {/* Level Selector */}
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Difficulty Level</Text>
-                                <View style={styles.pickerContainer}>
-                                    <Picker
-                                        selectedValue={level}
-                                        onValueChange={(itemValue: string) => setLevel(itemValue)}
-                                        style={styles.picker}
-                                        enabled={!isSaving}
-                                    >
-                                        {LEVELS.map(l => <Picker.Item key={l} label={l} value={l} />)}
-                                    </Picker>
-                                </View>
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>Article Content</Text>
-                                <TextInput
-                                    style={[styles.input, styles.textArea]}
-                                    value={content}
-                                    onChangeText={setContent}
-                                    multiline
-                                    placeholder="Learn about different types of plastics and how to properly recycle them..."
-                                    placeholderTextColor="#999"
-                                    editable={!isSaving}
-                                />
-                            </View>
-                        </>
+                        <View style={styles.inputGroup}>
+                            <Text style={styles.label}>Article Content</Text>
+                            <TextInput
+                                style={[styles.input, styles.textArea]}
+                                value={content}
+                                onChangeText={setContent}
+                                multiline
+                                placeholder="Learn about different types of plastics and how to properly recycle them..."
+                                placeholderTextColor="#999"
+                                editable={!isSaving}
+                            />
+                        </View>
                     ) : (
                         <>
                             <View style={styles.inputGroup}>
@@ -308,7 +278,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
     },
     header: {
-        backgroundColor: '#67A859',
+        backgroundColor: Colors.secondary,
         paddingTop: 50,
         paddingBottom: 16,
         paddingHorizontal: 20,
@@ -360,7 +330,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginLeft: 10,
-        color: '#67A859',
+        color: Colors.secondary,
         fontSize: 14,
         fontWeight: '500',
     },
@@ -414,7 +384,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     primaryButton: {
-        backgroundColor: '#67A859',
+        backgroundColor: Colors.secondary,
         paddingVertical: 16,
         borderRadius: 8,
         marginBottom: 12,
