@@ -2,7 +2,9 @@
 
 WasteWise is a comprehensive mobile application built to promote sustainable waste management and recycling practices. The app helps users track their recycling habits, learn about proper waste separation, find nearby recycling centers, and get AI-powered assistance for identifying recyclable items.
 
-![WasteWise Banner](https://i.imgur.com/placeholder-image.png)
+<p align="center">
+  <img width="704" height="1472" alt="WasteWise App Screens" src="https://github.com/user-attachments/assets/e94d3d9c-a3e1-4df1-963c-794b34f98454" />
+</p>
 
 ## Features ✨
 
@@ -45,14 +47,9 @@ WasteWise is a comprehensive mobile application built to promote sustainable was
 - [Vercel](https://vercel.com/) for backend hosting
 - [Expo](https://expo.dev/) for mobile app deployment
 
-## Screenshots 📱
+## App Preview 📱
 
-<div style="display: flex; flex-wrap: wrap; justify-content: space-between;">
-    <img src="https://i.imgur.com/placeholder-1.png" width="24%" alt="Home Screen">
-    <img src="https://i.imgur.com/placeholder-2.png" width="24%" alt="Recycling Centers Map">
-    <img src="https://i.imgur.com/placeholder-3.png" width="24%" alt="AI Chatbot">
-    <img src="https://i.imgur.com/placeholder-4.png" width="24%" alt="Waste Logging">
-</div>
+The image above showcases the key screens of our application, including the home dashboard, recycling centers map, AI chatbot, and waste identification features.
 
 ## Getting Started 🚀
 
