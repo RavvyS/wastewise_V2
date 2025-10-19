@@ -1,6 +1,6 @@
 // API Configuration
 export const API_BASE_URL = __DEV__
-    ? 'http://172.28.21.159:5001' // Development - use actual IP for mobile simulator  
+    ? (process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5001') // Development - from .env file
     : 'https://backend-two-zeta-41.vercel.app'; // Production - Vercel (Working URL)
 
 export const API_ENDPOINTS = {

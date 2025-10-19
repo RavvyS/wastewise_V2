@@ -46,7 +46,7 @@ export default function FAB({ onEcoZenPress, onCameraPress }: FABProps) {
     if (onEcoZenPress) {
       onEcoZenPress();
     } else {
-      router.push("/chatbot");
+      router.push("/AIChat");
     }
   };
 
