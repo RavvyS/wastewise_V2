@@ -155,3 +155,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - All contributors who have helped in development
 
 Made with ❤️ by Team WasteWise
+<p align="center">
+  <img width="704" height="1472" alt="WasteWise App Screens" src="https://github.com/user-attachments/assets/e94d3d9c-a3e1-4df1-963c-794b34f98454" />
+</p>
