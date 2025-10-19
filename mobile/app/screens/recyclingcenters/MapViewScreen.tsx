@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -11,12 +11,15 @@ import {
   ScrollView,
   Modal,
   Linking,
-} from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
-import { MaterialIcons } from '@expo/vector-icons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import * as Location from 'expo-location';
-import { apiGet, API_ENDPOINTS } from '../../../utils/api';
+} from "react-native";
+import MapView, {
+  Marker,
+  PROVIDER_GOOGLE,
+} from "../../../utils/PlatformMapView";
+import { MaterialIcons } from "@expo/vector-icons";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import * as Location from "expo-location";
+import { apiGet, API_ENDPOINTS } from "../../../utils/api";
 
 interface RecyclingCenter {
   id: number;
@@ -33,15 +36,17 @@ interface RecyclingCenter {
 
 export default function MapViewScreen() {
   const params = useLocalSearchParams();
-  const mapRef = useRef<MapView>(null);
-  
+  const mapRef = useRef<any>(null);
+
   const [centers, setCenters] = useState<RecyclingCenter[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-  const [selectedCenter, setSelectedCenter] = useState<RecyclingCenter | null>(null);
+  const [selectedCenter, setSelectedCenter] = useState<RecyclingCenter | null>(
+    null
+  );
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [expandedHours, setExpandedHours] = useState(false);
 
@@ -54,25 +59,28 @@ export default function MapViewScreen() {
 
   // Handle notification tap - auto open bottom sheet for specific center
   useEffect(() => {
-    if (params.centerId && params.autoOpen === 'true' && centers.length > 0) {
+    if (params.centerId && params.autoOpen === "true" && centers.length > 0) {
       const centerId = parseInt(params.centerId as string);
-      const center = centers.find(c => c.id === centerId);
-      
+      const center = centers.find((c) => c.id === centerId);
+
       if (center && center.latitude && center.longitude) {
-        console.log('Opening center from notification:', center.name);
-        
+        console.log("Opening center from notification:", center.name);
+
         // Set selected center and show bottom sheet
         setSelectedCenter(center);
         setShowBottomSheet(true);
-        
+
         // Center map on this location
         setTimeout(() => {
-          mapRef.current?.animateToRegion({
-            latitude: parseFloat(center.latitude!),
-            longitude: parseFloat(center.longitude!),
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }, 1000);
+          mapRef.current?.animateToRegion(
+            {
+              latitude: parseFloat(center.latitude!),
+              longitude: parseFloat(center.longitude!),
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            1000
+          );
         }, 500);
       }
     }
@@ -81,7 +89,7 @@ export default function MapViewScreen() {
   const getUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
+      if (status === "granted") {
         const location = await Location.getCurrentPositionAsync({});
         setUserLocation({
           latitude: location.coords.latitude,
@@ -89,7 +97,7 @@ export default function MapViewScreen() {
         });
       }
     } catch (error) {
-      console.error('Error getting location:', error);
+      console.error("Error getting location:", error);
     }
   };
 
@@ -99,8 +107,8 @@ export default function MapViewScreen() {
       const centersData = await apiGet(API_ENDPOINTS.CENTERS);
       setCenters(centersData);
     } catch (error) {
-      console.error('Error loading centers:', error);
-      Alert.alert('Error', 'Failed to load recycling centers');
+      console.error("Error loading centers:", error);
+      Alert.alert("Error", "Failed to load recycling centers");
     } finally {
       setLoading(false);
     }
@@ -121,32 +129,39 @@ export default function MapViewScreen() {
   const handleWebsite = (website: string) => {
     if (website) {
       let url = website.trim();
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = "https://" + url;
       }
       Linking.openURL(url).catch(() => {
-        Alert.alert('Error', 'Could not open website');
+        Alert.alert("Error", "Could not open website");
       });
     }
   };
 
-  const handleDirections = (latitude: string, longitude: string, name: string) => {
+  const handleDirections = (
+    latitude: string,
+    longitude: string,
+    name: string
+  ) => {
     // Use Google Maps Directions API - opens with directions ready, user taps Start
     const url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
-    
+
     Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'Could not open directions');
+      Alert.alert("Error", "Could not open directions");
     });
   };
 
   const parseOperatingHours = (hoursString?: string) => {
     if (!hoursString) return [];
-    
-    const dayHours = hoursString.split(', ').map(dayHour => {
-      const [day, hours] = dayHour.split(': ');
-      return { day: day.trim(), hours: hours ? hours.trim() : '' };
-    }).filter(item => item.day && item.hours);
-    
+
+    const dayHours = hoursString
+      .split(", ")
+      .map((dayHour) => {
+        const [day, hours] = dayHour.split(": ");
+        return { day: day.trim(), hours: hours ? hours.trim() : "" };
+      })
+      .filter((item) => item.day && item.hours);
+
     return dayHours;
   };
 
@@ -204,7 +219,10 @@ export default function MapViewScreen() {
 
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recycling Centers Map</Text>
@@ -220,10 +238,7 @@ export default function MapViewScreen() {
       >
         {/* User Location Marker */}
         {userLocation && (
-          <Marker
-            coordinate={userLocation}
-            title="Your Location"
-          >
+          <Marker coordinate={userLocation} title="Your Location">
             <MaterialIcons name="my-location" size={30} color="#2196F3" />
           </Marker>
         )}
@@ -250,7 +265,8 @@ export default function MapViewScreen() {
         <View style={styles.infoBox}>
           <MaterialIcons name="info" size={20} color="#FF9800" />
           <Text style={styles.infoText}>
-            No recycling centers with location data found. Add centers with location to see them on the map.
+            No recycling centers with location data found. Add centers with
+            location to see them on the map.
           </Text>
         </View>
       )}
@@ -259,7 +275,8 @@ export default function MapViewScreen() {
       <View style={styles.countBox}>
         <MaterialIcons name="place" size={20} color="#4CAF50" />
         <Text style={styles.countText}>
-          {centersWithLocation.length} center{centersWithLocation.length !== 1 ? 's' : ''} shown
+          {centersWithLocation.length} center
+          {centersWithLocation.length !== 1 ? "s" : ""} shown
         </Text>
       </View>
 
@@ -286,13 +303,22 @@ export default function MapViewScreen() {
                   {/* Header */}
                   <View style={styles.sheetHeader}>
                     <View style={styles.sheetTitleContainer}>
-                      <Text style={styles.sheetTitle}>{selectedCenter.name}</Text>
-                      {selectedCenter.rating !== undefined && selectedCenter.rating > 0 && (
-                        <View style={styles.sheetRating}>
-                          <MaterialIcons name="star" size={18} color="#FFD700" />
-                          <Text style={styles.sheetRatingText}>{selectedCenter.rating}</Text>
-                        </View>
-                      )}
+                      <Text style={styles.sheetTitle}>
+                        {selectedCenter.name}
+                      </Text>
+                      {selectedCenter.rating !== undefined &&
+                        selectedCenter.rating > 0 && (
+                          <View style={styles.sheetRating}>
+                            <MaterialIcons
+                              name="star"
+                              size={18}
+                              color="#FFD700"
+                            />
+                            <Text style={styles.sheetRatingText}>
+                              {selectedCenter.rating}
+                            </Text>
+                          </View>
+                        )}
                     </View>
                     <TouchableOpacity
                       style={styles.closeButton}
@@ -305,8 +331,14 @@ export default function MapViewScreen() {
                   {/* Address */}
                   <View style={styles.sheetSection}>
                     <View style={styles.sheetRow}>
-                      <MaterialIcons name="location-on" size={20} color="#4CAF50" />
-                      <Text style={styles.sheetText}>{selectedCenter.address}</Text>
+                      <MaterialIcons
+                        name="location-on"
+                        size={20}
+                        color="#4CAF50"
+                      />
+                      <Text style={styles.sheetText}>
+                        {selectedCenter.address}
+                      </Text>
                     </View>
                   </View>
 
@@ -315,50 +347,62 @@ export default function MapViewScreen() {
                     <View style={styles.sheetSection}>
                       <View style={styles.sheetRow}>
                         <MaterialIcons name="phone" size={20} color="#4CAF50" />
-                        <Text style={styles.sheetText}>{selectedCenter.phone}</Text>
+                        <Text style={styles.sheetText}>
+                          {selectedCenter.phone}
+                        </Text>
                       </View>
                     </View>
                   )}
 
                   {/* Services */}
-                  {selectedCenter.services && selectedCenter.services.length > 0 && (
-                    <View style={styles.sheetSection}>
-                      <Text style={styles.sheetSectionLabel}>Services:</Text>
-                      <View style={styles.servicesTags}>
-                        {selectedCenter.services.map((service, index) => (
-                          <View key={index} style={styles.serviceTag}>
-                            <Text style={styles.serviceTagText}>{service}</Text>
-                          </View>
-                        ))}
+                  {selectedCenter.services &&
+                    selectedCenter.services.length > 0 && (
+                      <View style={styles.sheetSection}>
+                        <Text style={styles.sheetSectionLabel}>Services:</Text>
+                        <View style={styles.servicesTags}>
+                          {selectedCenter.services.map((service, index) => (
+                            <View key={index} style={styles.serviceTag}>
+                              <Text style={styles.serviceTagText}>
+                                {service}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                    </View>
-                  )}
+                    )}
 
                   {/* Operating Hours */}
                   {selectedCenter.hours && (
                     <View style={styles.sheetSection}>
-                      <Text style={styles.sheetSectionLabel}>Operating Hours:</Text>
+                      <Text style={styles.sheetSectionLabel}>
+                        Operating Hours:
+                      </Text>
                       <View style={styles.hoursContainer}>
                         {parseOperatingHours(selectedCenter.hours)
                           .slice(0, expandedHours ? undefined : 3)
                           .map((dayHour, index) => (
                             <View key={index} style={styles.dayHourRow}>
                               <Text style={styles.dayText}>{dayHour.day}:</Text>
-                              <Text style={styles.hoursText}>{dayHour.hours}</Text>
+                              <Text style={styles.hoursText}>
+                                {dayHour.hours}
+                              </Text>
                             </View>
                           ))}
-                        {parseOperatingHours(selectedCenter.hours).length > 3 && (
+                        {parseOperatingHours(selectedCenter.hours).length >
+                          3 && (
                           <TouchableOpacity
                             style={styles.moreHoursButton}
                             onPress={() => setExpandedHours(!expandedHours)}
                           >
                             <Text style={styles.moreHoursText}>
                               {expandedHours
-                                ? 'Show Less'
+                                ? "Show Less"
                                 : `+${parseOperatingHours(selectedCenter.hours).length - 3} more days`}
                             </Text>
                             <MaterialIcons
-                              name={expandedHours ? 'expand-less' : 'expand-more'}
+                              name={
+                                expandedHours ? "expand-less" : "expand-more"
+                              }
                               size={16}
                               color="#4CAF50"
                             />
@@ -372,8 +416,14 @@ export default function MapViewScreen() {
                   {selectedCenter.website && (
                     <View style={styles.sheetSection}>
                       <View style={styles.sheetRow}>
-                        <MaterialIcons name="language" size={20} color="#4CAF50" />
-                        <Text style={styles.sheetText}>{selectedCenter.website}</Text>
+                        <MaterialIcons
+                          name="language"
+                          size={20}
+                          color="#4CAF50"
+                        />
+                        <Text style={styles.sheetText}>
+                          {selectedCenter.website}
+                        </Text>
                       </View>
                     </View>
                   )}
@@ -394,11 +444,24 @@ export default function MapViewScreen() {
                       <TouchableOpacity
                         style={styles.actionButton}
                         onPress={() =>
-                          handleDirections(selectedCenter.latitude!, selectedCenter.longitude!, selectedCenter.name)
+                          handleDirections(
+                            selectedCenter.latitude!,
+                            selectedCenter.longitude!,
+                            selectedCenter.name
+                          )
                         }
                       >
-                        <MaterialIcons name="directions" size={20} color="#2196F3" />
-                        <Text style={[styles.actionButtonText, { color: '#2196F3' }]}>
+                        <MaterialIcons
+                          name="directions"
+                          size={20}
+                          color="#2196F3"
+                        />
+                        <Text
+                          style={[
+                            styles.actionButtonText,
+                            { color: "#2196F3" },
+                          ]}
+                        >
                           Directions
                         </Text>
                       </TouchableOpacity>
@@ -409,8 +472,19 @@ export default function MapViewScreen() {
                         style={styles.actionButton}
                         onPress={() => handleWebsite(selectedCenter.website!)}
                       >
-                        <MaterialIcons name="language" size={20} color="#FF9800" />
-                        <Text style={[styles.actionButtonText, { color: '#FF9800' }]}>Website</Text>
+                        <MaterialIcons
+                          name="language"
+                          size={20}
+                          color="#FF9800"
+                        />
+                        <Text
+                          style={[
+                            styles.actionButtonText,
+                            { color: "#FF9800" },
+                          ]}
+                        >
+                          Website
+                        </Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -427,35 +501,35 @@ export default function MapViewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    backgroundColor: "#f5f5f5",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f5f5f5",
+    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 16,
-    backgroundColor: '#4CAF50',
+    backgroundColor: "#4CAF50",
   },
   backButton: {
     padding: 8,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: '600',
-    color: 'white',
+    fontWeight: "600",
+    color: "white",
   },
   map: {
     flex: 1,
@@ -463,19 +537,19 @@ const styles = StyleSheet.create({
   centerMarker: {
     width: 70,
     height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -484,20 +558,20 @@ const styles = StyleSheet.create({
   infoText: {
     flex: 1,
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     lineHeight: 20,
   },
   countBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "white",
     paddingHorizontal: 16,
     paddingVertical: 12,
     marginHorizontal: 16,
     marginVertical: 16,
     borderRadius: 12,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -505,25 +579,25 @@ const styles = StyleSheet.create({
   },
   countText: {
     fontSize: 16,
-    fontWeight: '500',
-    color: '#333',
+    fontWeight: "500",
+    color: "#333",
   },
   // Bottom Sheet Styles
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalBackdrop: {
     flex: 1,
   },
   bottomSheet: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    maxHeight: '75%',
+    maxHeight: "75%",
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -531,9 +605,9 @@ const styles = StyleSheet.create({
   handleBar: {
     width: 40,
     height: 4,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     borderRadius: 2,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginTop: 12,
     marginBottom: 8,
   },
@@ -542,9 +616,9 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
   sheetTitleContainer: {
@@ -553,19 +627,19 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     fontSize: 20,
-    fontWeight: '700',
-    color: '#333',
+    fontWeight: "700",
+    color: "#333",
     marginBottom: 8,
   },
   sheetRating: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   sheetRatingText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   closeButton: {
     padding: 4,
@@ -574,89 +648,87 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sheetRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 12,
   },
   sheetText: {
     flex: 1,
     fontSize: 15,
-    color: '#666',
+    color: "#666",
     lineHeight: 22,
   },
   sheetSectionLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginBottom: 8,
   },
   servicesTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   serviceTag: {
-    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    backgroundColor: "rgba(76, 175, 80, 0.1)",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
   },
   serviceTagText: {
     fontSize: 13,
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: "#4CAF50",
+    fontWeight: "600",
   },
   hoursContainer: {
     gap: 6,
   },
   dayHourRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   dayText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     minWidth: 50,
     marginRight: 12,
   },
   hoursText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   moreHoursButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 8,
     marginTop: 4,
     gap: 4,
   },
   moreHoursText: {
     fontSize: 13,
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: "#4CAF50",
+    fontWeight: "600",
   },
   actionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: "#F0F0F0",
     paddingTop: 16,
     marginTop: 8,
   },
   actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
     gap: 6,
   },
   actionButtonText: {
     fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
+    color: "#4CAF50",
+    fontWeight: "600",
   },
 });
-
-

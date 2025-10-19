@@ -17,6 +17,7 @@ import { router } from "expo-router";
 import { apiGet, API_ENDPOINTS } from "../../utils/api";
 import FAB from "../../components/FAB";
 import { Colors } from "../../constants/Colors";
+import BackendStatusBanner from "../../components/BackendStatusBanner";
 
 export default function HomeScreen() {
   const [testing, setTesting] = useState(false);
@@ -67,11 +68,11 @@ export default function HomeScreen() {
     },
     {
       id: 4,
-      title: "EcoZen AI Chat",
-      icon: "chatbubbles-outline" as const,
-      color: Colors.primary,
-      description: "Ask waste separation questions",
-      route: "/AIChat",
+      title: "AI Tools",
+      icon: "sparkles-outline" as const,
+      color: "#9C27B0", // Purple for AI features
+      description: "Chat & Waste Detection",
+      route: "/ai-tools",
     },
   ];
 
@@ -116,6 +117,8 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
+
+      <BackendStatusBanner />
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header Section */}

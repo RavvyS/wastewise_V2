@@ -10,5 +10,8 @@ export const ENV = {
   JWT_SECRET:
     process.env.JWT_SECRET || "your-super-secret-jwt-key-change-in-production",
   GEMINI_API_KEY:
-    process.env.GEMINI_API_KEY || "AIzaSyAwvs6mKKpxMBRUjId6qlBUyzCuI432LXc",
+    process.env.GEMINI_API_KEY || "AIzaSyB-hxrN3gtLfNAZSeAx_dI2GXRvsHzMaQA",
+  GOOGLE_MAPS_API_KEY:
+    process.env.GOOGLE_MAPS_API_KEY ||
+    "AIzaSyB-hxrN3gtLfNAZSeAx_dI2GXRvsHzMaQA",
 };
